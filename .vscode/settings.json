@@ -1,0 +1,26 @@
+{
+    "cSpell.words": [
+        "DICOM",
+        "londonaicentre",
+        "flip",
+        "NIFTI",
+        "nvflare"
+    ],
+    "python.analysis.extraPaths": [
+        "./src/standard/app/custom"
+    ],
+    "python.testing.cwd": "src",
+    "editor.codeActionsOnSave": {
+        "source.fixAll": "explicit",
+        "source.organizeImports": "explicit"
+    },
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.inlineSuggest.enabled": true,
+    "editor.inlineSuggest.showToolbar": "always",
+    "editor.rulers": [
+        120
+    ],
+    "ruff.configuration": "${workspaceFolder}/pyproject.toml",
+    "ruff.format.preview": true
+}

@@ -1,0 +1,74 @@
+# # Copyright (c) Guy's and St Thomas' NHS Foundation Trust & King's College London
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#     http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Ignore custom application files
+src/*/app/custom/config.json
+src/*/app/custom/models.py
+src/*/app/custom/trainer.py
+src/*/app/custom/validator.py
+src/*/app/custom/transforms.py
+src/*/app/custom/dataframe.csv
+src/*/app/custom/evaluator.py
+src/*/app/custom/model.pt
+
+data/
+.test_data/
+.test_runs/
+runs/workspace/
+
+#
+*.pyc
+__pycache__/
+
+# ignore nvflare generated files during provisioning
+workspace/
+
+# auto-generated files
+fl-server-net-1/fl-server/local/log_config.json
+fl-server-net-2/fl-server/local/log_config.json
+fl-client-1-net-1/fl-client/local/log_config.json
+fl-client-1-net-2/fl-client/local/log_config.json
+fl-client-2-net-1/fl-client/local/log_config.json
+fl-client-2-net-2/fl-client/local/log_config.json
+
+# Test coverage files
+.coverage
+*.coverage
+htmlcov/
+
+# IDE files
+.idea/
+
+# NVFLARE provisioned secrets - NEVER commit to version control
+# These are generated during provisioning (make nvflare-provision)
+# and should be kept in workspace/ folder (already gitignored)
+*.key
+*.crt
+*.pem
+**/signature.json
+**/fed_client.json
+**/fed_server.json
+**/fed_admin.json
+
+# NVFLARE provisioned service directories (contain secrets)
+fl_services/net-*/*/fl-client/startup/
+fl_services/net-*/*/fl-client/local/
+fl_services/net-*/*/fl-server/startup/
+fl_services/net-*/*/fl-server/local/
+fl_services/net-*/*/admin/startup/
+fl_services/net-*/*/admin/local/
+
+CLAUDE.md
+
+.claude/settings.local.json
+
+.mypy_cache/

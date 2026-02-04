@@ -1,0 +1,14 @@
+name: Check required_files.json in src
+
+on:
+  push:
+    branches: ["**"]
+
+jobs:
+  check-required-files:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run check_required_files.sh
+        run: bash check_required_files.sh

@@ -12,11 +12,18 @@
 # limitations under the License.
 #
 
+# Provision a new client for an existing NVFLARE federated learning network
+# Usage: ./scripts/provision-additional-client.sh <net_number> [fl_port] [admin_port]
+# 
+# You'll need to have added a new Trust_<N> client entry in the net-<net_number>_project.yml file
+# before running this script.
+# 
+# After running this script, remember to add the new client service to your docker compose file.
 set -e
 
-NET_NUMBER=${1:-1}
-FL_PORT=${FL_PORT:-8002}
-ADMIN_PORT=${ADMIN_PORT:-8003}
+NET_NUMBER="${1:?Error: NET_NUMBER is required}"
+FL_PORT="${2:-8002}"
+ADMIN_PORT="${3:-8003}"
 
 WORKSPACE="workspace/net-${NET_NUMBER}"
 FL_SERVICES="workspace/net-${NET_NUMBER}/services"
@@ -51,34 +58,34 @@ echo "[DEBUG] Clients in workspace/services: ${FL_SERVICES_CLIENTS[@]}"
 
 # 5. For each client in prod, copy only if not already present in fl_services
 SERVER_DIR="workspace/net-${NET_NUMBER}/services/fl-server-net-${NET_NUMBER}"
+
 for CLIENT_DIR in "${PROD_CLIENTS[@]}"; do
   [ -d "$CLIENT_DIR" ] || continue
   CLIENT_NAME=$(basename "$CLIENT_DIR")
   DEST_DIR="$FL_SERVICES/$CLIENT_NAME"
   if [ ! -d "$DEST_DIR" ]; then
     echo "[DEBUG] New client detected: $CLIENT_NAME"
-    mkdir -p "$FL_SERVICES"
+    
+    # Copy the entire client directory from prod to fl_services
     cp -r "$CLIENT_DIR" "$FL_SERVICES/"
-    # Restructure the new client folder
-    mkdir -p "$DEST_DIR/fl-client"
-    rm -rf "$DEST_DIR/fl-client/startup" "$DEST_DIR/fl-client/local" "$DEST_DIR/fl-client/transfer"
-    if [ -d "$DEST_DIR/startup" ]; then mv "$DEST_DIR/startup" "$DEST_DIR/fl-client/"; fi
-    if [ -d "$DEST_DIR/local" ]; then mv "$DEST_DIR/local" "$DEST_DIR/fl-client/"; fi
-    if [ -d "$DEST_DIR/transfer" ]; then mv "$DEST_DIR/transfer" "$DEST_DIR/fl-client/"; fi
-
+    echo "[DEBUG] Copied $CLIENT_NAME to $DEST_DIR"
+    
     # Fix start.sh to run in foreground (remove & from sub_start.sh call)
-    start_script="$DEST_DIR/fl-client/startup/start.sh"
+    start_script="$DEST_DIR/startup/start.sh"
     if [[ -f "${start_script}" ]]; then
         vlog "Modifying start.sh script to run 'sub_start.sh' process in foreground (removing &)"
         sed -i 's|\$DIR/sub_start.sh &|\$DIR/sub_start.sh|g' "${start_script}"
     fi
 
     # Overwrite rootCA.pem in new client with the one from the server
-    cp "$SERVER_DIR/fl-server/startup/rootCA.pem" "$DEST_DIR/fl-client/startup/rootCA.pem"
+    cp "$SERVER_DIR/startup/rootCA.pem" "$DEST_DIR/startup/rootCA.pem"
 
-    echo "[DEBUG] Directory listing for $DEST_DIR:"
-    ls -l "$DEST_DIR"
-    echo "Restructured, copied rootCA.pem, and populated Dockerfile to $DEST_DIR/fl-client/startup/"
+    echo "Copied new client '$CLIENT_NAME' and overwrote rootCA.pem from server."
+    echo "Add the new client '$CLIENT_NAME' to your docker compose file if needed."
+
+    # NOTE the below is difficult to maintain, so commented out for now. We could consider copying an existing service
+    # definition and modifying it accordingly, but for now we leave it to the user to add new clients to their compose
+    # files as needed.
 
     # Add client to docker compose if not present
 #     COMPOSE_FILE="deploy/compose-net-${NET_NUMBER}.yml"
@@ -99,9 +106,9 @@ for CLIENT_DIR in "${PROD_CLIENTS[@]}"; do
 #       # - MEMORY_PER_GPU_IN_GIB=16
 #       # - LOG_LEVEL=DEBUG
 #     volumes:
-#       - ../workspace/services/net-${NET_NUMBER}/${CLIENT_NAME}/fl-client/local:/app/local
-#       - ../workspace/services/net-${NET_NUMBER}/${CLIENT_NAME}/fl-client/startup:/app/startup
-#       - ../workspace/services/net-${NET_NUMBER}/${CLIENT_NAME}/fl-client/transfer:/app/transfer
+#       - ../workspace/services/net-${NET_NUMBER}/${CLIENT_NAME}/local:/app/local
+#       - ../workspace/services/net-${NET_NUMBER}/${CLIENT_NAME}/startup:/app/startup
+#       - ../workspace/services/net-${NET_NUMBER}/${CLIENT_NAME}/transfer:/app/transfer
 #     command: ["/bin/bash", "/app/entrypoint.sh"]
 #     shm_size: "32gb"
 #     gpus: all

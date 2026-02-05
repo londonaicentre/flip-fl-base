@@ -50,6 +50,9 @@ nvflare-provision-2-nets:
 	NET_NUMBER=1 FL_PORT=8002 ADMIN_PORT=8003 DEBUG=$(DEBUG) LOG_LEVEL=$(LOG_LEVEL) $(MAKE) nvflare-provision 
 	NET_NUMBER=2 FL_PORT=8002 ADMIN_PORT=8003 DEBUG=$(DEBUG) LOG_LEVEL=$(LOG_LEVEL) $(MAKE) nvflare-provision
 
+nvflare-provision-additional-client:
+	@./scripts/provision-additional-client.sh $(NET_NUMBER) $(FL_PORT) $(ADMIN_PORT)
+
 build:
 	@echo "Building Docker images for network $(NET_NUMBER) with LOCAL_DEV=$(LOCAL_DEV)"
 	$(DOCKER_COMPOSE_CMD) --profile build-only build --build-arg LOCAL_DEV=$(LOCAL_DEV)
@@ -87,7 +90,7 @@ run-container:
 download-xrays-data:
 	@if [ ! -d ".test_data/xrays" ]; then \
 		mkdir -p .test_data/xrays && \
-		aws s3 sync s3://flip-dev/test-data/flip-base-application/xrays .test_data/xrays; \
+		aws s3 sync s3://$(FLIP_BUCKET_NAME)/test-data/flip-base-application/xrays .test_data/xrays; \
 	else \
 		echo "Directory .test_data/xrays already exists, skipping download."; \
 	fi
@@ -95,7 +98,7 @@ download-xrays-data:
 download-spleen-data:
 	@if [ ! -d ".test_data/spleen" ]; then \
 		mkdir -p .test_data/spleen && \
-		aws s3 sync s3://flip-dev/test-data/flip-base-application/spleen .test_data/spleen; \
+		aws s3 sync s3://$(FLIP_BUCKET_NAME)/test-data/flip-base-application/spleen .test_data/spleen; \
 	else \
 		echo "Directory .test_data/spleen already exists, skipping download."; \
 	fi
@@ -103,7 +106,7 @@ download-spleen-data:
 download-checkpoints:
 	@if [ ! -d ".test_data/checkpoints" ]; then \
 		mkdir -p .test_data/checkpoints && \
-		aws s3 sync s3://flip-dev/test-data/flip-base-application/checkpoints .test_data/checkpoints; \
+		aws s3 sync s3://$(FLIP_BUCKET_NAME)/test-data/flip-base-application/checkpoints .test_data/checkpoints; \
 	else \
 		echo "Directory .test_data/checkpoints already exists, skipping download."; \
 	fi

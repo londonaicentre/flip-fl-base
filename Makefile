@@ -90,7 +90,7 @@ run-container:
 download-xrays-data:
 	@if [ ! -d ".test_data/xrays" ]; then \
 		mkdir -p .test_data/xrays && \
-		aws s3 sync s3://flip-dev/test-data/flip-base-application/xrays .test_data/xrays; \
+		aws s3 sync s3://$(FLIP_BUCKET_NAME)/test-data/flip-base-application/xrays .test_data/xrays; \
 	else \
 		echo "Directory .test_data/xrays already exists, skipping download."; \
 	fi
@@ -98,7 +98,7 @@ download-xrays-data:
 download-spleen-data:
 	@if [ ! -d ".test_data/spleen" ]; then \
 		mkdir -p .test_data/spleen && \
-		aws s3 sync s3://flip-dev/test-data/flip-base-application/spleen .test_data/spleen; \
+		aws s3 sync s3://$(FLIP_BUCKET_NAME)/test-data/flip-base-application/spleen .test_data/spleen; \
 	else \
 		echo "Directory .test_data/spleen already exists, skipping download."; \
 	fi
@@ -106,7 +106,7 @@ download-spleen-data:
 download-checkpoints:
 	@if [ ! -d ".test_data/checkpoints" ]; then \
 		mkdir -p .test_data/checkpoints && \
-		aws s3 sync s3://flip-dev/test-data/flip-base-application/checkpoints .test_data/checkpoints; \
+		aws s3 sync s3://$(FLIP_BUCKET_NAME)/test-data/flip-base-application/checkpoints .test_data/checkpoints; \
 	else \
 		echo "Directory .test_data/checkpoints already exists, skipping download."; \
 	fi

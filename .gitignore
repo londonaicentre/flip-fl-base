@@ -24,7 +24,7 @@ data/
 .test_data/
 .test_runs/
 runs/workspace/
-
+.plans/
 #
 *.pyc
 __pycache__/

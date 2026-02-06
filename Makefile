@@ -151,7 +151,8 @@ test:
 	$(MAKE) test-spleen-diffusion
 
 unit-test:
-	uv run pytest -s -vv
+	# run unit tests with test coverage and verbose output, without capturing stdout
+	uv run pytest -s -vv --cov=src --cov-report=term-missing tests/unit
 
 #======================================#
 #       Test App Management            #

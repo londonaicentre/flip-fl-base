@@ -128,20 +128,20 @@ TEST_SPLEEN_VARS = \
 	RUNS_DIR=../.test_runs/spleen
 
 test-xrays-standard: download-xrays-data
-	@./scripts/merge-job-dirs.sh src/standard/app tests/examples/image_classification/xray_classification/app_files "$(MERGED_DIR)"
+	@./scripts/merge-job-dirs.sh src/standard/app tutorials/image_classification/xray_classification/app_files "$(MERGED_DIR)"
 	$(TEST_XRAYS_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test-spleen-standard: download-spleen-data
-	@./scripts/merge-job-dirs.sh src/standard/app tests/examples/image_segmentation/3d_spleen_segmentation/app_files "$(MERGED_DIR)"
+	@./scripts/merge-job-dirs.sh src/standard/app tutorials/image_segmentation/3d_spleen_segmentation/app_files "$(MERGED_DIR)"
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test-spleen-evaluation: download-spleen-data download-checkpoints
-	@./scripts/merge-job-dirs.sh src/evaluation/app tests/examples/image_evaluation/3d_spleen_segmentation_evaluation/app_files "$(MERGED_DIR)"
+	@./scripts/merge-job-dirs.sh src/evaluation/app tutorials/image_evaluation/3d_spleen_segmentation_evaluation/app_files "$(MERGED_DIR)"
 	@cp -v .test_data/checkpoints/model.pt "$(MERGED_DIR)/custom/model.pt"
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test-spleen-diffusion: download-spleen-data
-	@./scripts/merge-job-dirs.sh src/diffusion_model/app tests/examples/image_synthesis/latent_diffusion_model/app_files "$(MERGED_DIR)"
+	@./scripts/merge-job-dirs.sh src/diffusion_model/app tutorials/image_synthesis/latent_diffusion_model/app_files "$(MERGED_DIR)"
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test:
@@ -160,11 +160,11 @@ unit-test:
 SPLEEN_APP_FILES = config.json models.py trainer.py validator.py transforms.py
 
 copy-spleen-app:
-	cp -rv tests/examples/image_segmentation/3d_spleen_segmentation/app_files/* src/standard/app/custom/
+	cp -rv tutorials/image_segmentation/3d_spleen_segmentation/app_files/* src/standard/app/custom/
 
 save-spleen-app:
 	@for f in $(SPLEEN_APP_FILES); do \
-		cp -fv src/standard/app/custom/$$f tests/examples/image_segmentation/3d_spleen_segmentation/app_files/$$f; \
+		cp -fv src/standard/app/custom/$$f tutorials/image_segmentation/3d_spleen_segmentation/app_files/$$f; \
 	done
 
 .PHONY: nvflare-provision build up down clean up-net down-net build-net \

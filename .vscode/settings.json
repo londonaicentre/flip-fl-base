@@ -18,9 +18,22 @@
         "nvflare"
     ],
     "python.analysis.extraPaths": [
-        "./src/standard/app/custom"
+        "./flip/standard/app/custom",
     ],
-    "python.testing.cwd": "src",
+    // Environment variables for testing
+    "python.envFile": "${workspaceFolder}/.env.test",
+    // Python Testing Configuration
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestArgs": [
+        "tests/unit",
+        "-v",
+        "--tb=short",
+        "--no-cov"
+    ],
+    "python.testing.cwd": "${workspaceFolder}",
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    // Code Actions
     "editor.codeActionsOnSave": {
         "source.fixAll": "explicit",
         "source.organizeImports": "explicit"

@@ -15,8 +15,9 @@ name: Build and Push FL Docker Images
 on:
   push:
     branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+    paths:
+      - "fl_services/**"
+      - ".github/workflows/docker_build_fl.yml"
   workflow_dispatch:
 
 jobs:

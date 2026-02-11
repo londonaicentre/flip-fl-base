@@ -147,10 +147,15 @@ test-spleen-diffusion: download-spleen-data
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test:
-	$(MAKE) test-xrays-standard
-	$(MAKE) test-spleen-standard
-	$(MAKE) test-spleen-evaluation
-	$(MAKE) test-spleen-diffusion
+	@echo "Running integration tests with filtered output (showing only errors, warnings, and test results)..."
+	@echo "============================== XRays Standard Test =============================="
+	$(MAKE) test-xrays-standard 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED\|WARNING"
+	@echo "============================== Spleen Standard Test =============================="
+	$(MAKE) test-spleen-standard 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED\|WARNING"
+	@echo "============================== Spleen Evaluation Test =============================="
+	$(MAKE) test-spleen-evaluation 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED\|WARNING"
+	@echo "============================== Spleen Diffusion Test =============================="
+	$(MAKE) test-spleen-diffusion 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED\|WARNING"
 
 unit-test:
 	# run unit tests with test coverage and verbose output, without capturing stdout

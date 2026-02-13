@@ -80,6 +80,17 @@ jobs:
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
 
+      - name: Free up disk space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          # Remove unnecessary packages and clean
+          sudo apt-get clean
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+          sudo docker system prune -af --volumes
+          echo "Disk space after cleanup:"
+          df -h
+
       ###########################################
       # 1️⃣ Build Base Image
       ###########################################
@@ -107,6 +118,18 @@ jobs:
             docker push $REGISTRY/$ORG/$BASE_IMAGE:stag
           fi
           echo "✅ Pushed base image."
+
+      - name: Cleanup after base image
+        run: |
+          # Remove untagged local copies but keep the SHA-tagged image for dependent builds
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            docker rmi $REGISTRY/$ORG/$BASE_IMAGE:prod || true
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            docker rmi $REGISTRY/$ORG/$BASE_IMAGE:stag || true
+          fi
+          docker system prune -f
+          echo "Disk space after base image cleanup:"
+          df -h
 
       ###########################################
       # 2️⃣ Build and Push FL Server
@@ -136,6 +159,18 @@ jobs:
           fi
           echo "✅ Pushed FL Server."
 
+      - name: Cleanup after FL Server
+        run: |
+          docker rmi $REGISTRY/$ORG/$SERVER_IMAGE:${{ github.sha }} || true
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            docker rmi $REGISTRY/$ORG/$SERVER_IMAGE:prod || true
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            docker rmi $REGISTRY/$ORG/$SERVER_IMAGE:stag || true
+          fi
+          docker system prune -f
+          echo "Disk space after FL Server cleanup:"
+          df -h
+
       ###########################################
       # 3️⃣ Build and Push FL Client
       ###########################################
@@ -164,6 +199,18 @@ jobs:
           fi
           echo "✅ Pushed FL Client."
 
+      - name: Cleanup after FL Client
+        run: |
+          docker rmi $REGISTRY/$ORG/$CLIENT_IMAGE:${{ github.sha }} || true
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            docker rmi $REGISTRY/$ORG/$CLIENT_IMAGE:prod || true
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            docker rmi $REGISTRY/$ORG/$CLIENT_IMAGE:stag || true
+          fi
+          docker system prune -f
+          echo "Disk space after FL Client cleanup:"
+          df -h
+
       ###########################################
       # 4️⃣ Build and Push FL API
       ###########################################
@@ -190,3 +237,17 @@ jobs:
             docker push $REGISTRY/$ORG/$API_IMAGE:stag
           fi
           echo "✅ Pushed FL API."
+
+      - name: Final cleanup
+        run: |
+          docker rmi $REGISTRY/$ORG/$API_IMAGE:${{ github.sha }} || true
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            docker rmi $REGISTRY/$ORG/$API_IMAGE:prod || true
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            docker rmi $REGISTRY/$ORG/$API_IMAGE:stag || true
+          fi
+          # Clean up the base image
+          docker rmi $REGISTRY/$ORG/$BASE_IMAGE:${{ github.sha }} || true
+          docker system prune -af
+          echo "Final disk space:"
+          df -h

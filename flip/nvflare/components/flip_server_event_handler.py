@@ -10,16 +10,15 @@
 # limitations under the License.
 #
 
-from evaluation_json_generator import EvaluationJsonGenerator
 from nvflare.apis.event_type import EventType
 from nvflare.apis.fl_component import FLComponent
 from nvflare.apis.fl_context import FLContext
 from nvflare.app_common.app_event_type import AppEventType
-from persist_and_cleanup import PersistToS3AndCleanup
-from utils.utils import Utils
 
 from flip import FLIP
 from flip.constants import FlipEvents, ModelStatus
+from flip.nvflare.components.persist_and_cleanup import PersistToS3AndCleanup
+from flip.utils import Utils
 
 
 class ServerEventHandler(FLComponent):
@@ -30,7 +29,7 @@ class ServerEventHandler(FLComponent):
 
     Args:
         model_id (string, not required)
-        evaluation_json_generator_id (string, not required)
+        validation_json_generator_id (string, not required)
         persist_and_cleanup_id (string, not required)
         flip (object, not required)
     Raises:
@@ -40,15 +39,15 @@ class ServerEventHandler(FLComponent):
     def __init__(
         self,
         model_id: str = "",
-        evaluation_json_generator_id: str = "json_generator",
+        validation_json_generator_id: str = "json_generator",
         persist_and_cleanup_id: str = "persist_and_cleanup",
         flip: FLIP = FLIP(),
     ):
         super(ServerEventHandler, self).__init__()
 
         self.model_id = model_id
-        self.evaluation_json_generator_id = evaluation_json_generator_id
-        self.evaluation_json_generator = None
+        self.validation_json_generator_id = validation_json_generator_id
+        self.validation_json_generator = None
         self.persist_and_cleanup_id = persist_and_cleanup_id
         self.persist_and_cleanup = None
         self.flip = flip
@@ -63,13 +62,13 @@ class ServerEventHandler(FLComponent):
     def handle_event(self, event_type: str, fl_ctx: FLContext):
         self.__set_dependencies(fl_ctx)
 
-        self.evaluation_json_generator.handle_evaluation_events(event_type, fl_ctx)
+        self.validation_json_generator.handle_evaluation_events(event_type, fl_ctx)
 
         if event_type == EventType.FATAL_SYSTEM_ERROR:
             self.log_error(fl_ctx, "Fatal system error event received")
             self.fatal_error = True
 
-        elif event_type == FlipEvents.TRAINING_INITIATED or event_type == FlipEvents.TASK_INITIATED:
+        elif event_type == FlipEvents.TRAINING_INITIATED:
             self.log_info(fl_ctx, "Training initiated event received")
             self.flip.update_status(self.model_id, ModelStatus.INITIATED)
 
@@ -111,16 +110,16 @@ class ServerEventHandler(FLComponent):
             self.flip.update_status(self.model_id, self.final_status)
 
     def __set_dependencies(self, fl_ctx: FLContext):
-        if self.evaluation_json_generator is None:
+        if self.validation_json_generator is None:
             engine = fl_ctx.get_engine()
-            self.evaluation_json_generator = engine.get_component(self.evaluation_json_generator_id)
+            self.validation_json_generator = engine.get_component(self.validation_json_generator_id)
 
-            if self.evaluation_json_generator is None or not isinstance(
-                self.evaluation_json_generator, EvaluationJsonGenerator
+            if self.validation_json_generator is None or not hasattr(
+                self.validation_json_generator, "handle_evaluation_events"
             ):
                 self.system_panic(
-                    f"'evaluation_json_generator_id' component must be ValidationJsonGenerator. "
-                    f"But got: {type(self.evaluation_json_generator)}",
+                    f"'validation_json_generator_id' component must have 'handle_evaluation_events' method. "
+                    f"But got: {type(self.validation_json_generator)}",
                     fl_ctx,
                 )
                 return

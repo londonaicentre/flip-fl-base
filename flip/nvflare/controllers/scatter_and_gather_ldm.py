@@ -44,10 +44,10 @@ from nvflare.app_common.app_constant import AppConstants
 from nvflare.app_common.app_event_type import AppEventType
 from nvflare.security.logging import secure_format_exception
 from nvflare.widgets.info_collector import GroupInfoCollector, InfoCollector
-from utils.utils import Utils
 
 from flip import FLIP
 from flip.constants import FlipEvents, ModelStatus, PTConstants
+from flip.utils import Utils
 
 
 def _check_non_neg_int(data, name: str):
@@ -58,7 +58,7 @@ def _check_non_neg_int(data, name: str):
         raise ValueError(f"{name} must be greater than or equal to 0.")
 
 
-class ScatterAndGather(Controller):
+class ScatterAndGatherLDM(Controller):
     def __init__(
         self,
         model_id: str = "",

@@ -118,14 +118,12 @@ download-checkpoints:
 # Test environment variables for xrays tests
 TEST_XRAYS_VARS = \
 	DEV_IMAGES_DIR=../.test_data/xrays/images \
-	DEV_DATAFOLDER=../.test_data/xrays/ \
 	DEV_DATAFRAME=../.test_data/xrays/sample_get_dataframe_response.csv \
 	RUNS_DIR=../.test_runs/xrays
 
 # Test environment variables for spleen tests
 TEST_SPLEEN_VARS = \
 	DEV_IMAGES_DIR=../.test_data/spleen/accession-resources \
-	DEV_DATAFOLDER=../.test_data/spleen/ \
 	DEV_DATAFRAME=../.test_data/spleen/sample_get_dataframe_response.csv \
 	RUNS_DIR=../.test_runs/spleen
 

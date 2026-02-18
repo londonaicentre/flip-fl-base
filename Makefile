@@ -72,18 +72,6 @@ down-net: down
 build-net: build
 
 #======================================#
-#       Development Commands           #
-#======================================#
-
-run-container:
-	@echo "Starting the application container..."
-	@echo "  DEV_IMAGES_DIR=$(DEV_IMAGES_DIR)"
-	@echo "  DEV_DATAFRAME=$(DEV_DATAFRAME)"
-	@./scripts/check-dev-paths.sh ./deploy "$(DEV_IMAGES_DIR)" "$(DEV_DATAFRAME)"
-	@sleep 3
-	$(DOCKER_COMPOSE_DEV_CMD) nvflare-simulator-dev
-
-#======================================#
 #          Test Data Commands          #
 #======================================#
 

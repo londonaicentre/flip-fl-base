@@ -149,13 +149,13 @@ test-spleen-diffusion: download-spleen-data
 test:
 	@echo "Running integration tests with filtered output (showing only errors, warnings, and test results)..."
 	@echo "============================== XRays Standard Test =============================="
-	$(MAKE) test-xrays-standard 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED\|WARNING"
+	$(MAKE) test-xrays-standard 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED"
 	@echo "============================== Spleen Standard Test =============================="
-	$(MAKE) test-spleen-standard 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED\|WARNING"
+	$(MAKE) test-spleen-standard 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED"
 	@echo "============================== Spleen Evaluation Test =============================="
-	$(MAKE) test-spleen-evaluation 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED\|WARNING"
+	$(MAKE) test-spleen-evaluation 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED"
 	@echo "============================== Spleen Diffusion Test =============================="
-	$(MAKE) test-spleen-diffusion 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED\|WARNING"
+	$(MAKE) test-spleen-diffusion 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED"
 
 unit-test:
 	# run unit tests with test coverage and verbose output, without capturing stdout

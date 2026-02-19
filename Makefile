@@ -1,4 +1,4 @@
-# Copyright (c) Guy's and St Thomas' NHS Foundation Trust & King's College London
+# Copyright (c) 2026 Guy's and St Thomas' NHS Foundation Trust & King's College London
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -72,18 +72,6 @@ down-net: down
 build-net: build
 
 #======================================#
-#       Development Commands           #
-#======================================#
-
-run-container:
-	@echo "Starting the application container..."
-	@echo "  DEV_IMAGES_DIR=$(DEV_IMAGES_DIR)"
-	@echo "  DEV_DATAFRAME=$(DEV_DATAFRAME)"
-	@./scripts/check-dev-paths.sh ./deploy "$(DEV_IMAGES_DIR)" "$(DEV_DATAFRAME)"
-	@sleep 3
-	$(DOCKER_COMPOSE_DEV_CMD) nvflare-simulator-dev
-
-#======================================#
 #          Test Data Commands          #
 #======================================#
 
@@ -145,13 +133,19 @@ test-spleen-diffusion: download-spleen-data
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test:
-	$(MAKE) test-xrays-standard
-	$(MAKE) test-spleen-standard
-	$(MAKE) test-spleen-evaluation
-	$(MAKE) test-spleen-diffusion
+	@echo "Running integration tests with filtered output (showing only errors, warnings, and test results)..."
+	@echo "============================== XRays Standard Test =============================="
+	$(MAKE) test-xrays-standard 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED"
+	@echo "============================== Spleen Standard Test =============================="
+	$(MAKE) test-spleen-standard 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED"
+	@echo "============================== Spleen Evaluation Test =============================="
+	$(MAKE) test-spleen-evaluation 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED"
+	@echo "============================== Spleen Diffusion Test =============================="
+	$(MAKE) test-spleen-diffusion 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED"
 
 unit-test:
-	uv run pytest -s -vv
+	# run unit tests with test coverage and verbose output, without capturing stdout
+	uv run pytest -s -vv --cov=flip/ --cov-report=term-missing tests/unit/
 
 #======================================#
 #       Test App Management            #

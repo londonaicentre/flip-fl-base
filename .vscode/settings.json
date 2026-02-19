@@ -6,9 +6,8 @@
         "NIFTI",
         "nvflare"
     ],
-    "python.analysis.extraPaths": [
-        "./flip/standard/app/custom",
-    ],
+    "python.analysis.extraPaths": [],
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
     // Environment variables for testing
     "python.envFile": "${workspaceFolder}/.env.test",
     // Python Testing Configuration

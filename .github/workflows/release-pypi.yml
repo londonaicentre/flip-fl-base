@@ -1,4 +1,4 @@
-# # Copyright (c) 2026 Guy's and St Thomas' NHS Foundation Trust & King's College London
+# Copyright (c) 2026 Guy's and St Thomas' NHS Foundation Trust & King's College London
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -102,6 +102,38 @@ jobs:
           git tag -a "$TAG" -m "Release $TAG"
           git push origin "$TAG"
 
+      - name: Prepare release notes
+        if: steps.check_tag.outputs.skip == 'false'
+        id: notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          PREV_TAG=$(git tag --list 'v*.*.*' | sort -V | grep -v "^${TAG}$" | tail -n1)
+
+          # Strip the license comment block and substitute placeholders
+          HEADER=$(sed '/^<!--/,/-->/d' .github/RELEASE_NOTES_TEMPLATE.md \
+            | sed "s/{{VERSION}}/${VERSION}/g" \
+            | sed "s/{{TAG}}/${TAG}/g" \
+            | sed "s/{{PREV_TAG}}/${PREV_TAG:-initial release}/g")
+
+          # Generate changelog from GitHub API (respects .github/release.yml categories)
+          API_ARGS=(-X POST
+            -f "tag_name=${TAG}"
+            -f "target_commitish=${{ github.sha }}")
+          if [[ -n "$PREV_TAG" ]]; then
+            API_ARGS+=(-f "previous_tag_name=${PREV_TAG}")
+          fi
+          GENERATED=$(gh api "repos/${{ github.repository }}/releases/generate-notes" \
+            "${API_ARGS[@]}" --jq '.body' 2>/dev/null || echo "")
+
+          # Combine header + generated changelog into a single notes file
+          printf '%s\n\n%s\n' "$HEADER" "$GENERATED" > /tmp/release_notes.md
+
+          echo "notes_file=/tmp/release_notes.md" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         if: steps.check_tag.outputs.skip == 'false'
         env:
@@ -109,5 +141,5 @@ jobs:
         run: |
           gh release create "${{ steps.version.outputs.tag }}" \
             --title "flip ${{ steps.version.outputs.tag }}" \
-            --generate-notes \
+            --notes-file "${{ steps.notes.outputs.notes_file }}" \
             dist/*

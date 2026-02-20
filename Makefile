@@ -1,4 +1,4 @@
-# Copyright (c) Guy's and St Thomas' NHS Foundation Trust & King's College London
+# Copyright (c) 2026 Guy's and St Thomas' NHS Foundation Trust & King's College London
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -72,18 +72,6 @@ down-net: down
 build-net: build
 
 #======================================#
-#       Development Commands           #
-#======================================#
-
-run-container:
-	@echo "Starting the application container..."
-	@echo "  DEV_IMAGES_DIR=$(DEV_IMAGES_DIR)"
-	@echo "  DEV_DATAFRAME=$(DEV_DATAFRAME)"
-	@./scripts/check-dev-paths.sh ./deploy "$(DEV_IMAGES_DIR)" "$(DEV_DATAFRAME)"
-	@sleep 3
-	$(DOCKER_COMPOSE_DEV_CMD) nvflare-simulator-dev
-
-#======================================#
 #          Test Data Commands          #
 #======================================#
 
@@ -128,30 +116,36 @@ TEST_SPLEEN_VARS = \
 	RUNS_DIR=../.test_runs/spleen
 
 test-xrays-standard: download-xrays-data
-	@./scripts/merge-job-dirs.sh src/standard/app tests/examples/image_classification/xray_classification/app_files "$(MERGED_DIR)"
+	@./scripts/merge-job-dirs.sh src/standard/app tutorials/image_classification/xray_classification/app_files "$(MERGED_DIR)"
 	$(TEST_XRAYS_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test-spleen-standard: download-spleen-data
-	@./scripts/merge-job-dirs.sh src/standard/app tests/examples/image_segmentation/3d_spleen_segmentation/app_files "$(MERGED_DIR)"
+	@./scripts/merge-job-dirs.sh src/standard/app tutorials/image_segmentation/3d_spleen_segmentation/app_files "$(MERGED_DIR)"
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test-spleen-evaluation: download-spleen-data download-checkpoints
-	@./scripts/merge-job-dirs.sh src/evaluation/app tests/examples/image_evaluation/3d_spleen_segmentation_evaluation/app_files "$(MERGED_DIR)"
+	@./scripts/merge-job-dirs.sh src/evaluation/app tutorials/image_evaluation/3d_spleen_segmentation_evaluation/app_files "$(MERGED_DIR)"
 	@cp -v .test_data/checkpoints/model.pt "$(MERGED_DIR)/custom/model.pt"
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test-spleen-diffusion: download-spleen-data
-	@./scripts/merge-job-dirs.sh src/diffusion_model/app tests/examples/image_synthesis/latent_diffusion_model/app_files "$(MERGED_DIR)"
+	@./scripts/merge-job-dirs.sh src/diffusion_model/app tutorials/image_synthesis/latent_diffusion_model/app_files "$(MERGED_DIR)"
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test:
-	$(MAKE) test-xrays-standard
-	$(MAKE) test-spleen-standard
-	$(MAKE) test-spleen-evaluation
-	$(MAKE) test-spleen-diffusion
+	@echo "Running integration tests with filtered output (showing only errors, warnings, and test results)..."
+	@echo "============================== XRays Standard Test =============================="
+	$(MAKE) test-xrays-standard 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED"
+	@echo "============================== Spleen Standard Test =============================="
+	$(MAKE) test-spleen-standard 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED"
+	@echo "============================== Spleen Evaluation Test =============================="
+	$(MAKE) test-spleen-evaluation 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED"
+	@echo "============================== Spleen Diffusion Test =============================="
+	$(MAKE) test-spleen-diffusion 2>&1 | grep -i -A5 -B5 "make\[1\]: Leaving\|exited with code\|ERROR\|FAILED"
 
 unit-test:
-	uv run pytest -s -vv
+	# run unit tests with test coverage and verbose output, without capturing stdout
+	uv run pytest -s -vv --cov=flip/ --cov-report=term-missing tests/unit/
 
 #======================================#
 #       Test App Management            #
@@ -160,11 +154,11 @@ unit-test:
 SPLEEN_APP_FILES = config.json models.py trainer.py validator.py transforms.py
 
 copy-spleen-app:
-	cp -rv tests/examples/image_segmentation/3d_spleen_segmentation/app_files/* src/standard/app/custom/
+	cp -rv tutorials/image_segmentation/3d_spleen_segmentation/app_files/* src/standard/app/custom/
 
 save-spleen-app:
 	@for f in $(SPLEEN_APP_FILES); do \
-		cp -fv src/standard/app/custom/$$f tests/examples/image_segmentation/3d_spleen_segmentation/app_files/$$f; \
+		cp -fv src/standard/app/custom/$$f tutorials/image_segmentation/3d_spleen_segmentation/app_files/$$f; \
 	done
 
 .PHONY: nvflare-provision build up down clean up-net down-net build-net \

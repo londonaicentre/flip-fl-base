@@ -91,7 +91,7 @@ jobs:
           uv publish \
             --publish-url https://upload.pypi.org/legacy/ \
             --check-url   https://pypi.org/simple/ \
-            --token       "${{ secrets.PYPI_TOKEN }}"
+            --trusted-publishing always
 
       - name: Create and push git tag
         if: steps.check_tag.outputs.skip == 'false'

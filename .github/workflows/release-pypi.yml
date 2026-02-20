@@ -71,7 +71,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.check_tag.outputs.skip == 'false'
-        run: uv sync
+        run: uv sync --all-extras
 
       - name: Run linter
         if: steps.check_tag.outputs.skip == 'false'

@@ -47,14 +47,19 @@ jobs:
                 issue_number: issueNumber,
               });
 
+              const currentBody = context.payload.pull_request.body || '';
+              const updatedBody = currentBody.replace(/^(## Fixes)\s*$/m, `$1 #${issueNumber}`);
+
               await github.rest.pulls.update({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: context.payload.pull_request.number,
                 title: issue.data.title,
+                body: updatedBody,
               });
 
               console.log(`PR title set to: "${issue.data.title}"`);
+              console.log(`PR body updated with Fixes #${issueNumber}`);
             } catch (error) {
               console.error(`Could not set PR title from issue #${issueNumber}: ${error.message}`);
             }

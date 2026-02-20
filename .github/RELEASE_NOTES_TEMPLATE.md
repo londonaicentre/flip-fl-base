@@ -25,19 +25,12 @@
 
 ## :file_folder: PRs merged in this release
 
-{{#each PRS}}
-
-- [#{{this.number}}]({{this.url}}) {{this.title}} ([@{{this.user.login}}](https://github.com/{{this.user.login}}))
-{{/each}}
+<!-- auto-populated by the release workflow -->
 
 ## :star: Acknowledgements
 
 A big thank you to the following contributors for their work on this release:
 
-{{#each PRS}}
-
-- [@{{this.user.login}}](https://github.com/{{this.user.login}})
-
-{{/each}}
+<!-- auto-populated by the release workflow -->
 
 ---

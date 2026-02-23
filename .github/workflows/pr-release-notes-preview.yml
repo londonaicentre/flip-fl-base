@@ -36,7 +36,7 @@ jobs:
       - name: Extract version and previous tag
         id: meta
         run: |
-          VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/.*= *"\(.*\)"/\1/')
+          VERSION=$(grep -m1 '__version__' flip/__init__.py | sed 's/.*= *"\(.*\)"/\1/')
           PREV_TAG=$(git tag --list 'v*.*.*' | sort -V | tail -n1)
 
           echo "version=${VERSION}"           >> "$GITHUB_OUTPUT"

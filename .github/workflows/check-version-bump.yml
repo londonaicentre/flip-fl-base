@@ -34,25 +34,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          # ── Extract versions from both files ──────────────────────────────
-          TOML_VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/.*= *"\(.*\)"/\1/')
-          INIT_VERSION=$(grep -m1 '__version__' flip/__init__.py | sed 's/.*= *"\(.*\)"/\1/')
+          # ── Extract version from single source of truth ──────────────────
+          NEW_VERSION=$(grep -m1 '__version__' flip/__init__.py | sed 's/.*= *"\(.*\)"/\1/')
 
-          echo "pyproject.toml version : ${TOML_VERSION}"
-          echo "flip/__init__.py version: ${INIT_VERSION}"
-
-          # ── Check 1: both files must agree ────────────────────────────────
-          if [[ "$TOML_VERSION" != "$INIT_VERSION" ]]; then
-            echo ""
-            echo "ERROR: Version mismatch between files."
-            echo "  pyproject.toml   → ${TOML_VERSION}"
-            echo "  flip/__init__.py → ${INIT_VERSION}"
-            echo ""
-            echo "Both files must declare the same version before merging to main."
-            exit 1
-          fi
-
-          NEW_VERSION="$TOML_VERSION"
+          echo "flip/__init__.py version: ${NEW_VERSION}"
 
           # ── Check 2: validate semver format (MAJOR.MINOR.PATCH) ───────────
           if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -84,7 +69,7 @@ jobs:
             echo "  Current (PR)  : ${NEW_VERSION}"
             echo "  Latest release: ${LATEST_VERSION}"
             echo ""
-            echo "Increment the version in pyproject.toml and flip/__init__.py before merging to main."
+            echo "Increment the version in flip/__init__.py before merging to main."
             exit 1
           fi
 

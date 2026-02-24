@@ -1,0 +1,32 @@
+# Codecov configuration for londonaicentre/flip-fl-base
+# Two flags track coverage independently:
+#   - flip : the flip/ Python package (unit tests at tests/unit/)
+#   - api  : the fl_api/ FastAPI package (unit tests at fl_services/fl-api-base/tests/)
+
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 2%
+    patch:
+      default:
+        target: 80%
+
+flags:
+  flip:
+    paths:
+      - flip/
+    carryforward: true
+  api:
+    paths:
+      - fl_services/fl-api-base/fl_api/
+    carryforward: true
+
+ignore:
+  - "tests/"
+  - "fl_services/fl-api-base/tests/"
+  - "tutorials/"
+  - "workspace/"
+  - "src/"
+  - "scripts/"

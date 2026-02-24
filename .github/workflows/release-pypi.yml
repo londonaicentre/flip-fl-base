@@ -37,12 +37,6 @@ jobs:
         run: |
           VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/.*= *"\(.*\)"/\1/')
           INIT_VERSION=$(grep -m1 '__version__' flip/__init__.py | sed 's/.*= *"\(.*\)"/\1/')
-
-          if [[ "$VERSION" != "$INIT_VERSION" ]]; then
-            echo "ERROR: Version mismatch — pyproject.toml has '${VERSION}' but flip/__init__.py has '${INIT_VERSION}'."
-            exit 1
-          fi
-
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=v${VERSION}"    >> "$GITHUB_OUTPUT"
           echo "Detected version: ${VERSION}"

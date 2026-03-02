@@ -19,7 +19,6 @@ endif
 # Default values
 NET_NUMBER ?= 1
 FL_PORT ?= 8002
-ADMIN_PORT ?= 8003
 DEBUG ?= false
 LOG_LEVEL ?= DEBUG
 MERGED_DIR ?= .test_runs/merged-job-dir
@@ -44,14 +43,14 @@ merge_dirs = \
 #======================================#
 
 nvflare-provision:
-	@./scripts/provision-network.sh $(NET_NUMBER) $(FL_PORT) $(ADMIN_PORT) $(DEBUG) $(LOG_LEVEL)
+	@./scripts/provision-network.sh $(NET_NUMBER) $(FL_PORT) $(DEBUG) $(LOG_LEVEL)
 
 nvflare-provision-2-nets:
-	NET_NUMBER=1 FL_PORT=8002 ADMIN_PORT=8003 DEBUG=$(DEBUG) LOG_LEVEL=$(LOG_LEVEL) $(MAKE) nvflare-provision 
-	NET_NUMBER=2 FL_PORT=8002 ADMIN_PORT=8003 DEBUG=$(DEBUG) LOG_LEVEL=$(LOG_LEVEL) $(MAKE) nvflare-provision
+	NET_NUMBER=1 FL_PORT=8002 DEBUG=$(DEBUG) LOG_LEVEL=$(LOG_LEVEL) $(MAKE) nvflare-provision 
+	NET_NUMBER=2 FL_PORT=8004 DEBUG=$(DEBUG) LOG_LEVEL=$(LOG_LEVEL) $(MAKE) nvflare-provision
 
 nvflare-provision-additional-client:
-	@./scripts/provision-additional-client.sh $(NET_NUMBER) $(FL_PORT) $(ADMIN_PORT)
+	@./scripts/provision-additional-client.sh $(NET_NUMBER) $(FL_PORT)
 
 build:
 	@echo "Building Docker images for network $(NET_NUMBER) with LOCAL_DEV=$(LOCAL_DEV)"

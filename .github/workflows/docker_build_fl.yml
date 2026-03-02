@@ -17,6 +17,7 @@ on:
     branches: [main, develop]
     paths:
       - "fl_services/**"
+      - "flip/**"
       - ".github/workflows/docker_build_fl.yml"
   workflow_dispatch:
 

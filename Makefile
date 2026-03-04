@@ -43,11 +43,14 @@ merge_dirs = \
 #======================================#
 
 nvflare-provision:
-	@./scripts/provision-network.sh $(NET_NUMBER) $(FL_PORT) $(DEBUG) $(LOG_LEVEL)
+	@./scripts/provision-network.sh net-${NET_NUMBER}_project.yml $(NET_NUMBER) $(FL_PORT) $(DEBUG) $(LOG_LEVEL)
 
 nvflare-provision-2-nets:
 	NET_NUMBER=1 FL_PORT=8002 DEBUG=$(DEBUG) LOG_LEVEL=$(LOG_LEVEL) $(MAKE) nvflare-provision 
-	NET_NUMBER=2 FL_PORT=8004 DEBUG=$(DEBUG) LOG_LEVEL=$(LOG_LEVEL) $(MAKE) nvflare-provision
+	NET_NUMBER=2 FL_PORT=8002 DEBUG=$(DEBUG) LOG_LEVEL=$(LOG_LEVEL) $(MAKE) nvflare-provision
+
+nvflare-provision-stag:
+	@./scripts/provision-network.sh net-${NET_NUMBER}_project_stag.yml $(NET_NUMBER) $(FL_PORT) $(DEBUG) $(LOG_LEVEL)
 
 nvflare-provision-additional-client:
 	@./scripts/provision-additional-client.sh $(NET_NUMBER) $(FL_PORT)

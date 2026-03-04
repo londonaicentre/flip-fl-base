@@ -28,16 +28,6 @@ MERGED_DIR ?= .test_runs/merged-job-dir
 DOCKER_COMPOSE_CMD = docker compose -f deploy/compose.yml
 DOCKER_COMPOSE_DEV_CMD = NET_NUMBER=$(NET_NUMBER) docker compose -f deploy/compose.dev.yml up --build --remove-orphans
 DOCKER_COMPOSE_TEST_CMD = NET_NUMBER=$(NET_NUMBER) docker compose -f deploy/compose.test.yml up --build --remove-orphans
-# Create a unique temporary merge directory and merge two folders into it
-# Usage:
-#   $(call merge_dirs,sourceA,sourceB)
-merge_dirs = \
-	$(info 🗂️  Merging $(1) and $(2) into $(MERGED_DIR)) \
-	$(shell rm -rf "$(MERGED_DIR)" 2>/dev/null || sudo rm -rf "$(MERGED_DIR)") \
-	$(shell mkdir -p "$(MERGED_DIR)/custom" 2>/dev/null || sudo mkdir -p "$(MERGED_DIR)/custom" && sudo chown -R $(USER):$(USER) "$(MERGED_DIR)") \
-	$(shell cp -r "$(1)"/* "$(MERGED_DIR)/" 2>/dev/null || true) \
-	$(shell cp -r "$(2)"/* "$(MERGED_DIR)/custom/" 2>/dev/null || true) \
-	$(info ✅ Done. Output: $(MERGED_DIR))
 
 #======================================#
 #         FL Network Commands          #

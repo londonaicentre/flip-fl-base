@@ -10,27 +10,15 @@
 # limitations under the License.
 #
 
-# Ignore custom application files
-src/*/app/custom/config.json
-src/*/app/custom/models.py
-src/*/app/custom/trainer.py
-src/*/app/custom/validator.py
-src/*/app/custom/transforms.py
-src/*/app/custom/dataframe.csv
-src/*/app/custom/evaluator.py
-src/*/app/custom/model.pt
-
 data/
 .test_data/
 .test_runs/
 runs/workspace/
 .plans/
+
 #
 *.pyc
 __pycache__/
-
-# ignore nvflare generated files during provisioning
-workspace/
 
 # auto-generated files
 fl-server-net-1/fl-server/local/log_config.json
@@ -48,6 +36,9 @@ htmlcov/
 # IDE files
 .idea/
 
+# NVFLARE provisioned service directories (contain secrets)
+workspace/
+
 # NVFLARE provisioned secrets - NEVER commit to version control
 # These are generated during provisioning (make nvflare-provision)
 # and should be kept in workspace/ folder (already gitignored)
@@ -59,13 +50,12 @@ htmlcov/
 **/fed_server.json
 **/fed_admin.json
 
-# NVFLARE provisioned service directories (contain secrets)
-fl_services/net-*/*/fl-client/startup/
-fl_services/net-*/*/fl-client/local/
-fl_services/net-*/*/fl-server/startup/
-fl_services/net-*/*/fl-server/local/
-fl_services/net-*/*/admin/startup/
-fl_services/net-*/*/admin/local/
+# Tutorials tmp files
+tutorials/testing/tmp
+*.pt
+
+# Tutorials do not need strict uv lock files
+tutorials/image_segmentation/3d_spleen_segmentation/uv.lock
 
 CLAUDE.md
 

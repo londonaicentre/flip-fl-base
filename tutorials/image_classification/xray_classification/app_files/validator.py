@@ -9,23 +9,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+X-Ray Classification Validator — MONAI FL Option B (ClientAlgo).
+
+``FLIP_VALIDATOR`` extends ``ClientAlgo`` and implements ``evaluate()``.
+The existing multi-label classification validation loop is preserved;
+weights are received via ``ExchangeObject`` instead of DXO.
+
+Driven by ``flip.nvflare.executors.RUN_MONAI_FL_VALIDATOR``.
+"""
+
+from __future__ import annotations
+
 import json
 import logging
 from pathlib import Path
 
-import monai
-import numpy as np
 import pydicom
 import torch
 from data_utils import Lesion, LesionDict, get_labels_from_radiology_row, get_lesion_label, get_xray_transforms
 from loss_and_metrics import compute_precision_recall_f1, get_bce_loss
 from models import get_model
-from nvflare.apis.dxo import DXO, DataKind, from_shareable
-from nvflare.apis.executor import Executor
-from nvflare.apis.fl_constant import ReturnCode
-from nvflare.apis.fl_context import FLContext
-from nvflare.apis.shareable import Shareable, make_reply
-from nvflare.apis.signal import Signal
+from monai.data import DataLoader, Dataset
+from monai.fl.client.client_algo import ClientAlgo
+from monai.fl.utils.exchange_object import ExchangeObject
 from nvflare.app_common.app_constant import AppConstants
 
 from flip import FLIP
@@ -33,137 +40,82 @@ from flip.constants import ResourceType
 from flip.nvflare.metrics import send_metrics_value
 
 
-class FLIP_VALIDATOR(Executor):
+class FLIP_VALIDATOR(ClientAlgo):
+    """X-ray multi-label classification validator using the MONAI FL ``ClientAlgo`` interface.
+
+    Args:
+        project_id: FLIP project identifier.
+        query: SQL cohort query.
+        validate_task_name: NVFLARE task name (informational only).
+    """
+
     def __init__(
         self,
-        validate_task_name=AppConstants.TASK_VALIDATION,
-        project_id="",
-        query="",
-        local_training_nvflare: bool = False,
-    ):
-        super(FLIP_VALIDATOR, self).__init__()
-
-        # Logger
+        project_id: str = "",
+        query: str = "",
+        validate_task_name: str = AppConstants.TASK_VALIDATION,
+    ) -> None:
+        self._project_id = project_id
+        self._query = query
+        self._validate_task_name = validate_task_name
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        # FLIP-specific: do not modify these variables
-        self._validate_task_name = validate_task_name
-
-        self.config = {}
+    def initialize(self, extra=None):
+        """Set up model, transforms, and FLIP test dataset."""
         working_dir = Path(__file__).parent.resolve()
-        self.working_dir = working_dir
-        with open(str(working_dir / "config.json")) as file:
-            self.config = json.load(file)
-            self._val_split = self.config["VAL_SPLIT"]
-            self._test_split = self.config["TEST_SPLIT"]
-            self._lesions = self.config["LESIONS"]
-            if "-1" in self._lesions.keys():
-                self._normal_key = self._lesions["-1"]
-                del self._lesions["-1"]
-            else:
-                self._normal_key = "Normal"
-            self._value_to_numerical = {int(i): j for i, j in self.config["value_to_numerical"].items()}
-            if 0 not in self._value_to_numerical.keys() and 1 not in self._value_to_numerical.keys():
-                raise ValueError("value_to_numerical must contain mappings for 0 and 1.")
-            self._batch_size = self.config["BATCH_SIZE"]
 
-        self._lesions = LesionDict(items=[Lesion(id=int(k), lesion=v) for k, v in self._lesions.items()])
+        with open(str(working_dir / "config.json")) as f:
+            config = json.load(f)
+        self._val_split = config["VAL_SPLIT"]
+        self._test_split = config["TEST_SPLIT"]
+        lesions_raw = config["LESIONS"]
+        self._value_to_numerical = {int(k): v for k, v in config["value_to_numerical"].items()}
+        if 0 not in self._value_to_numerical or 1 not in self._value_to_numerical:
+            raise ValueError("value_to_numerical must contain mappings for 0 and 1.")
+        if "-1" in lesions_raw:
+            self._normal_key = lesions_raw.pop("-1")
+        else:
+            self._normal_key = "Normal"
+        self._batch_size = config["BATCH_SIZE"]
 
-        # Model creation
-        self.model = get_model()
+        self._lesions = LesionDict(items=[Lesion(id=int(k), lesion=v) for k, v in lesions_raw.items()])
+
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.model = get_model()
         self.model.to(self.device)
 
-        # Setup the transforms
         self._test_transforms = get_xray_transforms(is_validation=True)
 
-        # Data loading
         self.flip = FLIP()
-        self.project_id = project_id
-        self.query = query
-        self.dataframe = self.flip.get_dataframe(self.project_id, self.query)
+        self.dataframe = self.flip.get_dataframe(self._project_id, self._query)
+        test_dict = self._build_test_datalist()
 
-        # Data dict
-        self.test_dict = self.get_image_and_label_list()
-        self.test_dataset = monai.data.Dataset(self.test_dict, transform=self._test_transforms)
+        test_dataset = Dataset(test_dict, transform=self._test_transforms)
+        self.test_dataloader = DataLoader(test_dataset, batch_size=self._batch_size, shuffle=False)
 
-        # Get dataset and dataloader
-        self.test_dataloader = monai.data.DataLoader(self.test_dataset, batch_size=self._batch_size, shuffle=False)
-
-    def get_image_and_label_list(self):
-        """
-        Returns a list of dictionaries containing a field "image" and a fields corresponding to each lesion with its
-        label value.
+    def evaluate(self, data, extra=None):
+        """Run multi-label classification validation and return metrics.
 
         Args:
-            dataframe (_type_): dataframe output by FLIP, which has to contain accession_id and
-                columns for each of the lesions.
+            data: ``ExchangeObject`` carrying the global model weights.
+            extra: Dict containing ``fl_ctx`` and ``abort_signal``.
 
         Returns:
-            _type_: list of dictionaries for data loading.
+            ``ExchangeObject`` with ``metrics`` dict.
         """
-        datalist = []
+        fl_ctx = (extra or {}).get("fl_ctx")
+        abort_signal = (extra or {}).get("abort_signal")
 
-        # loop over each accession id in the train set
-        for _, row in self.dataframe.iterrows():
-            accession_id = row["accession_id"]
-            # First, we load the labels;
-            pathology_dict = get_labels_from_radiology_row(
-                row, self._lesions, self._value_to_numerical, self._normal_key
-            )
+        weights = {k: torch.as_tensor(v, device=self.device) for k, v in data.weights.items()}
+        metrics = self._do_validation(fl_ctx, weights, abort_signal)
 
-            try:
-                accession_folder_path = self.flip.get_by_accession_number(
-                    self.project_id,
-                    accession_id,
-                    resource_type=[
-                        ResourceType.DICOM,
-                    ],
-                )
-            except Exception as err:
-                print(f"Could not get image data folder path for {accession_id}: {err}")
-                continue
+        return ExchangeObject(metrics=metrics)
 
-            all_images = list(accession_folder_path.rglob("*.dcm"))
-            this_accession_matches = 0
-            print(f"Total base count found for accession_id {accession_id}: {len(all_images)}")
+    def finalize(self, extra=None):
+        pass
 
-            for img in all_images:
-                try:
-                    _ = pydicom.dcmread(str(img))
-                except Exception as e:
-                    print(f"Problem loading header of base image {str(img)}.")
-                    print(f"{e=}")
-                    print(f"{type(e)=}")
-                    print(f"{e.args=}")
-                    continue
-
-                # defines keys for image and segmentation
-                item_ = {"image": str(img)}
-                item_.update(pathology_dict)
-                datalist.append(item_)
-                this_accession_matches += 1
-
-            print(f"Added {this_accession_matches} image / label pairs for {accession_id}.")
-
-        print(f"Found {len(datalist)} files in total.")
-
-        # split into the training and testing data
-        _, _, test_datalist = np.split(
-            datalist,
-            [
-                int(len(datalist) * (1 - self._val_split - self._test_split)),
-                int(len(datalist) * (1 - self._test_split)),
-            ],
-        )
-
-        print(f"Found {len(test_datalist)} files for testing.")
-
-        return test_datalist
-
-    def do_validation(self, fl_ctx, weights, abort_signal):
+    def _do_validation(self, fl_ctx, weights, abort_signal):
         self.model.load_state_dict(weights)
-
         self.model.eval()
 
         metrics = {"loss": [], "f1-score": {}, "precision": {}, "recall": {}}
@@ -173,9 +125,9 @@ class FLIP_VALIDATOR(Executor):
             metrics["recall"][lesion_name] = []
 
         with torch.no_grad():
-            for i, batch in enumerate(self.test_dataloader):
-                if abort_signal.triggered:
-                    return 0
+            for _, batch in enumerate(self.test_dataloader):
+                if abort_signal is not None and abort_signal.triggered:
+                    return metrics
 
                 images = batch["image"].to(self.device)
                 labels = get_lesion_label(batch, self._lesions).to(self.device)
@@ -191,65 +143,50 @@ class FLIP_VALIDATOR(Executor):
                     metrics["recall"][pathology].append(recall)
                     metrics["f1-score"][pathology].append(f1_score)
 
-        # Get text
-        message = "testing round finished - "
-        for metric, metric_values in metrics.items():
-            if metric == "loss":
-                message += f"{metric}: {metric_values[-1]:.4f};\t"
-            else:
-                for lesion_name, lesion_values in metric_values.items():
-                    message += f"{metric}-{lesion_name}: {lesion_values[-1]:.4f};\t"
-
-        message += "\n"
-        print(message)
-        self.log_info(fl_ctx, message)
-
-        # Send metrics over to FLIP
-        send_metrics_value(label="TEST_LOSS", value=metrics["loss"][-1], fl_ctx=fl_ctx, round=0, flip=self.flip)
-        for metric in ["f1-score", "precision", "recall"]:
-            for lesion_name in self._lesions.get_lesion_list():
-                send_metrics_value(
-                    label=f"{'test'.upper()}-{metric.upper()}",
-                    value=metrics[metric][lesion_name][-1],
-                    fl_ctx=fl_ctx,
-                    round=0,
-                    flip=self.flip,
-                )
+        if fl_ctx is not None:
+            send_metrics_value(label="TEST_LOSS", value=metrics["loss"][-1], fl_ctx=fl_ctx, round=0, flip=self.flip)
+            for metric in ["f1-score", "precision", "recall"]:
+                for lesion_name in self._lesions.get_lesion_list():
+                    send_metrics_value(
+                        label=f"TEST-{metric.upper()}",
+                        value=metrics[metric][lesion_name][-1],
+                        fl_ctx=fl_ctx,
+                        round=0,
+                        flip=self.flip,
+                    )
 
         return metrics
 
-    def execute(
-        self,
-        task_name: str,
-        shareable: Shareable,
-        fl_ctx: FLContext,
-        abort_signal: Signal,
-    ) -> Shareable:
-        if task_name == self._validate_task_name:
-            # model_owner = "?"
-            dxo = from_shareable(shareable)
-
-            # Ensure data_kind is weights.
-            if not dxo.data_kind == DataKind.WEIGHTS:
-                self.log_exception(
-                    fl_ctx,
-                    f"DXO is of type {dxo.data_kind} but expected type WEIGHTS.",
+    def _build_test_datalist(self):
+        """Build the test-split datalist (third split after train/val)."""
+        datalist = []
+        for _, row in self.dataframe.iterrows():
+            accession_id = row["accession_id"]
+            pathology_dict = get_labels_from_radiology_row(
+                row, self._lesions, self._value_to_numerical, self._normal_key
+            )
+            try:
+                folder = self.flip.get_by_accession_number(
+                    self._project_id, accession_id, resource_type=[ResourceType.DICOM]
                 )
-                return make_reply(ReturnCode.BAD_TASK_DATA)
+            except Exception as err:
+                print(f"Could not get data for {accession_id}: {err}")
+                continue
 
-            # Extract weights and ensure they are tensor.
-            # model_owner = shareable.get_header(AppConstants.MODEL_OWNER, "?")
-            weights = {k: torch.as_tensor(v, device=self.device) for k, v in dxo.data.items()}
+            matched = 0
+            for img in folder.rglob("*.dcm"):
+                try:
+                    pydicom.dcmread(str(img))
+                except Exception as e:
+                    print(f"Could not read DICOM {img}: {e}")
+                    continue
+                item = {"image": str(img)}
+                item.update(pathology_dict)
+                datalist.append(item)
+                matched += 1
+            print(f"Added {matched} DICOM images for {accession_id}.")
 
-            # Get validation accuracy
-            metrics = self.do_validation(fl_ctx, weights, abort_signal)
-            if abort_signal.triggered:
-                return make_reply(ReturnCode.TASK_ABORTED)
-
-            dxo = DXO(data_kind=DataKind.METRICS, data=metrics)
-
-            return dxo.to_shareable()
-
-        else:
-            return make_reply(ReturnCode.TASK_UNKNOWN)
-            return make_reply(ReturnCode.TASK_UNKNOWN)
+        print(f"Found {len(datalist)} total DICOM test images.")
+        train_end = int(len(datalist) * (1 - self._val_split - self._test_split))
+        val_end = int(len(datalist) * (1 - self._test_split))
+        return datalist[val_end:]

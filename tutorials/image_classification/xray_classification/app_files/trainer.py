@@ -9,9 +9,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+X-Ray Classification Trainer — MONAI FL Option B (ClientAlgo).
+
+``FLIP_TRAINER`` extends ``ClientAlgo``.  The existing training loop, loss
+functions, metrics, and data loading logic are preserved; only the interface
+is changed from ``nvflare.apis.executor.Executor`` to the platform-agnostic
+``monai.fl.client.client_algo.ClientAlgo``.
+
+Key differences from the legacy executor:
+- ``__init__`` no longer receives a Shareable; heavy setup moves to
+  ``initialize(extra)``.
+- ``execute()`` is replaced by ``train(data, extra)`` and
+  ``get_weights(extra)``.
+- Model weights are exchanged via ``ExchangeObject`` instead of DXO.
+- ``fl_ctx`` and ``abort_signal`` come from ``extra`` dict.
+- Data is loaded once at ``initialize()`` and cached across rounds.
+
+Driven by ``flip.nvflare.executors.RUN_MONAI_FL_TRAINER``.
+"""
+
+from __future__ import annotations
+
 import json
 import logging
-import os.path
 from pathlib import Path
 
 import numpy as np
@@ -21,194 +42,130 @@ from data_utils import Lesion, LesionDict, get_labels_from_radiology_row, get_le
 from loss_and_metrics import compute_precision_recall_f1, get_bce_loss
 from models import get_model
 from monai.data import DataLoader, Dataset
-from nvflare.apis.dxo import DataKind, from_shareable
-from nvflare.apis.executor import Executor
-from nvflare.apis.fl_constant import ReservedKey, ReturnCode
-from nvflare.apis.fl_context import FLContext
-from nvflare.apis.shareable import Shareable, make_reply
-from nvflare.apis.signal import Signal
-from nvflare.app_common.abstract.model import make_model_learnable, model_learnable_to_dxo
+from monai.fl.client.client_algo import ClientAlgo
+from monai.fl.utils.constants import WeightType
+from monai.fl.utils.exchange_object import ExchangeObject
 from nvflare.app_common.app_constant import AppConstants
-from nvflare.app_opt.pt.model_persistence_format_manager import PTModelPersistenceFormatManager
 
 from flip import FLIP
-from flip.constants import PTConstants, ResourceType
+from flip.constants import ResourceType
 from flip.nvflare.metrics import send_metrics_value
 from flip.utils import get_model_weights_diff
 
 
-class FLIP_TRAINER(Executor):
+class FLIP_TRAINER(ClientAlgo):
+    """X-ray multi-label classification trainer using the MONAI FL ``ClientAlgo`` interface.
+
+    Args:
+        project_id: FLIP project identifier.
+        query: SQL cohort query.
+        train_task_name: NVFLARE task name (informational only; used to keep the
+            constructor signature compatible with the adapter).
+    """
+
     def __init__(
         self,
-        train_task_name=AppConstants.TASK_TRAIN,
-        submit_model_task_name=AppConstants.TASK_SUBMIT_MODEL,
-        exclude_vars=None,
-        project_id="",
-        query="",
-    ):
-        """Trainer for FLIP-based X-ray image classification.
-
-        Args:
-            train_task_name (str, optional): Task name for train task. Defaults to "train".
-            submit_model_task_name (str, optional): Task name for submit model. Defaults to "submit_model".
-            exclude_vars (list): List of variables to exclude during model loading.
-        """
-        super(FLIP_TRAINER, self).__init__()
-
+        project_id: str = "",
+        query: str = "",
+        train_task_name: str = AppConstants.TASK_TRAIN,
+    ) -> None:
+        self._project_id = project_id
+        self._query = query
         self._train_task_name = train_task_name
-        self._submit_model_task_name = submit_model_task_name
-        self._exclude_vars = exclude_vars
-
-        # Logger
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        # Load the config
-        self.config = {}
+    # ------------------------------------------------------------------
+    # ClientAlgo lifecycle
+    # ------------------------------------------------------------------
+
+    def initialize(self, extra=None):
+        """Set up model, optimizer, transforms, and FLIP datasets."""
         working_dir = Path(__file__).parent.resolve()
-        with open(str(working_dir / "config.json")) as file:
-            self.config = json.load(file)
-            self._epochs = self.config["LOCAL_ROUNDS"]
-            self._lr_start = self.config["LR_START"]
-            self._lr_end = self.config["LR_END"]
-            self._val_split = self.config["VAL_SPLIT"]
-            self._test_split = self.config["TEST_SPLIT"]
-            self._lesions = self.config["LESIONS"]
-            self._value_to_numerical = {int(i): j for i, j in self.config["value_to_numerical"].items()}
-            if 0 not in self._value_to_numerical.keys() and 1 not in self._value_to_numerical.keys():
-                raise ValueError("value_to_numerical must contain mappings for 0 and 1.")
-            if "-1" in self._lesions.keys():
-                self._normal_key = self._lesions["-1"]
-                del self._lesions["-1"]
-            else:
-                self._normal_key = "Normal"
-            self._batch_size = self.config["BATCH_SIZE"]
-            self.validate_every = self.config["VALIDATE_EVERY"] if "VALIDATE_EVERY" in self.config.keys() else 1
 
-        self._lesions = LesionDict(items=[Lesion(id=int(k), lesion=v) for k, v in self._lesions.items()])
+        with open(str(working_dir / "config.json")) as f:
+            config = json.load(f)
+        self._epochs = config["LOCAL_ROUNDS"]
+        self._lr_start = config["LR_START"]
+        self._lr_end = config["LR_END"]
+        self._val_split = config["VAL_SPLIT"]
+        self._test_split = config["TEST_SPLIT"]
+        lesions_raw = config["LESIONS"]
+        self._value_to_numerical = {int(k): v for k, v in config["value_to_numerical"].items()}
+        if 0 not in self._value_to_numerical or 1 not in self._value_to_numerical:
+            raise ValueError("value_to_numerical must contain mappings for 0 and 1.")
+        if "-1" in lesions_raw:
+            self._normal_key = lesions_raw.pop("-1")
+        else:
+            self._normal_key = "Normal"
+        self._batch_size = config["BATCH_SIZE"]
+        self.validate_every = config.get("VALIDATE_EVERY", 1)
 
-        # Setup the model
-        self.model = get_model()
+        self._lesions = LesionDict(items=[Lesion(id=int(k), lesion=v) for k, v in lesions_raw.items()])
+
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.model = get_model()
         self.model.to(self.device)
-
-        # Setup the transforms
 
         self._train_transforms = get_xray_transforms()
         self._val_transforms = get_xray_transforms(is_validation=True)
 
-        # Setup the training dataset
         self.flip = FLIP()
-        self.project_id = project_id
-        self.query = query
-        self.dataframe = self.flip.get_dataframe(self.project_id, self.query)
+        self.dataframe = self.flip.get_dataframe(self._project_id, self._query)
         if "accession_id" not in self.dataframe.columns:
-            raise ValueError("The dataframe must contain 'accession_id' column.")
-        self.train_dict, self.val_dict = self.get_image_and_label_list()
+            raise ValueError("Dataframe must contain 'accession_id' column.")
+        train_dict, val_dict = self._build_datalist()
 
-        # Setup the dataset
-        self.training_dataset = Dataset(self.train_dict, transform=self._train_transforms)
+        self.training_dataset = Dataset(train_dict, transform=self._train_transforms)
         self.training_dataloader = DataLoader(self.training_dataset, batch_size=self._batch_size, shuffle=True)
-        self.validation_dataset = Dataset(self.val_dict, transform=self._val_transforms)
+        self.validation_dataset = Dataset(val_dict, transform=self._val_transforms)
         self.validation_dataloader = DataLoader(self.validation_dataset, batch_size=self._batch_size, shuffle=False)
 
-        # Define optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self._lr_start)
         gamma_lr = (self._lr_end / self._lr_start) ** (1 / self._epochs)
         self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=gamma_lr)
 
-        # Setup the persistence manager to save PT model.
-        # The default training configuration is used by persistence manager
-        # in case no initial model is found.
-        self._default_train_conf = {"train": {"model": type(self.model).__name__}}
-        self.persistence_manager = PTModelPersistenceFormatManager(
-            data=self.model.state_dict(), default_train_conf=self._default_train_conf
-        )
+        self._global_weights = None  # populated in train(), used in get_weights()
+        self._n_iterations = 0
 
-    def get_num_epochs(self):
-        """Returns the number of epochs for training."""
-        return self._epochs
+    def train(self, data, extra=None):
+        """Load global weights and run local training epochs."""
+        fl_ctx = (extra or {}).get("fl_ctx")
+        abort_signal = (extra or {}).get("abort_signal")
+        global_round = (extra or {}).get("current_round", 0)
 
-    def get_image_and_label_list(self):
-        """
-        Returns a list of dictionaries containing a field "image" and a fields corresponding to each lesion with its
-        label value.
+        torch_weights = {k: torch.as_tensor(v) for k, v in data.weights.items()}
+        self._global_weights = {k: v.clone() for k, v in torch_weights.items()}
+        self._local_train(fl_ctx, torch_weights, abort_signal, global_round)
 
-        Args:
-            dataframe (_type_): dataframe output by FLIP, which has to contain accession_id and
-                columns for each of the lesions.
+    def get_weights(self, extra=None):
+        """Return weight diff or full weights depending on ``weight_type`` in extra."""
+        weight_type = (extra or {}).get("weight_type", WeightType.WEIGHTS)
+        current_weights = self.model.state_dict()
 
-        Returns:
-            _type_: list of dictionaries for data loading.
-        """
-        datalist = []
-
-        # loop over each accession id in the train set
-        for _, row in self.dataframe.iterrows():
-            accession_id = row["accession_id"]
-            # First, we load the radiology note; format should be: [project] - [lesion1,lesion2,lesion3_lesion3]
-            pathology_dict = get_labels_from_radiology_row(
-                row, self._lesions, self._value_to_numerical, self._normal_key
+        if weight_type == WeightType.WEIGHT_DIFF and self._global_weights is not None:
+            dxo = get_model_weights_diff(self._global_weights, current_weights, self._n_iterations)
+            return ExchangeObject(
+                weights=dxo.data,
+                weight_type=WeightType.WEIGHT_DIFF,
+                statistics={"num_steps": self._n_iterations},
             )
 
-            try:
-                accession_folder_path = self.flip.get_by_accession_number(
-                    self.project_id,
-                    accession_id,
-                    resource_type=[
-                        ResourceType.DICOM,
-                    ],
-                )
-            except Exception as err:
-                print(f"Could not get image data folder path for {accession_id}: {err}")
-                continue
-
-            all_images = list(accession_folder_path.rglob("*.dcm"))
-            this_accession_matches = 0
-            print(f"Total base count found for accession_id {accession_id}: {len(all_images)}")
-
-            for img in all_images:
-                try:
-                    _ = pydicom.dcmread(str(img))
-                except Exception as e:
-                    print(f"Problem loading header of base image {str(img)}.")
-                    print(f"{e=}")
-                    print(f"{type(e)=}")
-                    print(f"{e.args=}")
-                    continue
-
-                # defines keys for image and segmentation
-                item_ = {"image": str(img)}
-                item_.update(pathology_dict)
-                datalist.append(item_)
-                this_accession_matches += 1
-
-            print(f"Added {this_accession_matches} image / label pairs for {accession_id}.")
-
-        print(f"Found {len(datalist)} files in total.")
-
-        # split into the training and testing data
-        train_datalist, val_datalist, test_datalist = np.split(
-            datalist,
-            [
-                int(len(datalist) * (1 - self._val_split - self._test_split)),
-                int(len(datalist) * (1 - self._test_split)),
-            ],
+        return ExchangeObject(
+            weights={k: v.cpu().numpy() for k, v in current_weights.items()},
+            weight_type=WeightType.WEIGHTS,
         )
 
-        print(
-            f"Found {len(train_datalist)} files for training, {len(val_datalist)} files for validation and "
-            f"{len(test_datalist)} files for testing."
-        )
+    def finalize(self, extra=None):
+        pass
 
-        return train_datalist, val_datalist
+    # ------------------------------------------------------------------
+    # Training loop (unchanged from legacy executor)
+    # ------------------------------------------------------------------
 
-    def local_train(self, fl_ctx: FLContext, weights, abort_signal, global_round):
-        # Set the model weights
+    def _local_train(self, fl_ctx, weights, abort_signal, global_round):
         self.model.load_state_dict(state_dict=weights)
-
-        # Basic training
         self.model.train()
-        print(f"Starting local train on device {self.device}")
+
         training_metrics = {"loss": {"train": [], "val": []}, "f1-score": {}, "precision": {}, "recall": {}}
         for lesion_name in self._lesions.get_lesion_list():
             training_metrics["f1-score"][lesion_name] = {"train": [], "val": []}
@@ -223,10 +180,8 @@ class FLIP_TRAINER(Executor):
                 training_metrics_["precision"][lesion_name] = {"train": [], "val": []}
                 training_metrics_["recall"][lesion_name] = {"train": [], "val": []}
 
-            for i, batch in enumerate(self.training_dataloader):
-                if abort_signal.triggered:
-                    # If abort_signal is triggered, we simply return.
-                    # The outside function will check it again and decide steps to take.
+            for _, batch in enumerate(self.training_dataloader):
+                if abort_signal is not None and abort_signal.triggered:
                     return
 
                 images = batch["image"].to(self.device)
@@ -246,12 +201,11 @@ class FLIP_TRAINER(Executor):
                     training_metrics_["recall"][pathology]["train"].append(recall)
                     training_metrics_["f1-score"][pathology]["train"].append(f1_score)
                 self._n_iterations += 1
+
             if epoch % self.validate_every == 0:
                 self.model.eval()
-                for i, batch in enumerate(self.validation_dataloader):
-                    if abort_signal.triggered:
-                        # If abort_signal is triggered, we simply return.
-                        # The outside function will check it again and decide steps to take.
+                for _, batch in enumerate(self.validation_dataloader):
+                    if abort_signal is not None and abort_signal.triggered:
                         return
 
                     images = batch["image"].to(self.device)
@@ -271,18 +225,15 @@ class FLIP_TRAINER(Executor):
 
             self.scheduler.step()
 
-            # Aggregate metrics:
-
             for metric, metric_dump in training_metrics_.items():
                 if metric == "loss":
                     training_metrics["loss"]["train"].append(np.mean(metric_dump["train"]))
                     if epoch % self.validate_every == 0:
                         training_metrics["loss"]["val"].append(np.mean(metric_dump["val"]))
                     else:
-                        if len(training_metrics_["loss"]["val"]) == 0:
-                            training_metrics["loss"]["val"].append(0)
-                        else:
-                            training_metrics["loss"]["val"].append(training_metrics["loss"]["val"][-1])
+                        training_metrics["loss"]["val"].append(
+                            training_metrics["loss"]["val"][-1] if training_metrics["loss"]["val"] else 0
+                        )
                 else:
                     for lesion_name in self._lesions.get_lesion_list():
                         training_metrics[metric][lesion_name]["train"].append(
@@ -293,132 +244,76 @@ class FLIP_TRAINER(Executor):
                                 np.mean(metric_dump[lesion_name]["val"])
                             )
                         else:
-                            if len(training_metrics[metric][lesion_name]["val"]) == 0:
-                                training_metrics[metric][lesion_name]["val"].append(0)
-                            else:
-                                training_metrics[metric][lesion_name]["val"].append(
-                                    training_metrics[metric][lesion_name]["val"][-1]
-                                )
+                            prev = training_metrics[metric][lesion_name]["val"]
+                            training_metrics[metric][lesion_name]["val"].append(prev[-1] if prev else 0)
 
-            # Get text
-            message = f"epoch {epoch + 1}/{self.get_num_epochs()} - "
-            for metric, metric_values in training_metrics.items():
-                if metric == "loss":
-                    message += (
-                        f"{metric}: train={metric_values['train'][-1]:.4f}, val={metric_values['val'][-1]:.4f};\t"
-                    )
-                else:
-                    for lesion_name, lesion_values in metric_values.items():
-                        lvt = lesion_values["train"][-1]
-                        lvv = lesion_values["val"][-1]
-                        message += f"{metric}-{lesion_name}: train={lvt:.4f}, val={lvv:.4f};\t"
-
-            message += "\n"
-            print(message)
-            self.log_info(fl_ctx, message)
-
-            # Send metrics over to FLIP
-            round = global_round * (self._epochs) + epoch + 1
-            send_metrics_value(
-                label="TRAIN_LOSS",
-                round=round,
-                value=training_metrics["loss"]["train"][-1],
-                fl_ctx=fl_ctx,
-                flip=self.flip,
-            )
-            send_metrics_value(
-                label="VAL_LOSS",
-                round=round,
-                value=training_metrics["loss"]["val"][-1],
-                fl_ctx=fl_ctx,
-                flip=self.flip,
-            )
-
-            for metric in ["f1-score", "precision", "recall"]:
-                for lesion_name in self._lesions.get_lesion_list():
-                    send_metrics_value(
-                        label=f"{'train'.upper()}-{metric.upper()}",
-                        round=round,
-                        value=training_metrics[metric][lesion_name]["train"][-1],
-                        fl_ctx=fl_ctx,
-                        flip=self.flip,
-                    )
-                    send_metrics_value(
-                        label=f"{'val'.upper()}-{metric.upper()}",
-                        round=round,
-                        value=training_metrics[metric][lesion_name]["val"][-1],
-                        fl_ctx=fl_ctx,
-                        flip=self.flip,
-                    )
-
-    def execute(
-        self,
-        task_name: str,
-        shareable: Shareable,
-        fl_ctx: FLContext,
-        abort_signal: Signal,
-    ) -> Shareable:
-        if task_name == self._train_task_name:
-            global_round = shareable.get_header(AppConstants.CURRENT_ROUND)
-
-            # Get model weights
-            dxo = from_shareable(shareable)
-
-            # Ensure data kind is weights.
-            if not dxo.data_kind == DataKind.WEIGHTS:
-                self.log_error(
-                    fl_ctx,
-                    f"data_kind expected WEIGHTS but got {dxo.data_kind} instead.",
+            if fl_ctx is not None:
+                round_num = global_round * self._epochs + epoch + 1
+                send_metrics_value(
+                    label="TRAIN_LOSS",
+                    round=round_num,
+                    value=training_metrics["loss"]["train"][-1],
+                    fl_ctx=fl_ctx,
+                    flip=self.flip,
                 )
-                return make_reply(ReturnCode.BAD_TASK_DATA)
+                send_metrics_value(
+                    label="VAL_LOSS",
+                    round=round_num,
+                    value=training_metrics["loss"]["val"][-1],
+                    fl_ctx=fl_ctx,
+                    flip=self.flip,
+                )
+                for metric in ["f1-score", "precision", "recall"]:
+                    for lesion_name in self._lesions.get_lesion_list():
+                        send_metrics_value(
+                            label=f"TRAIN-{metric.upper()}",
+                            round=round_num,
+                            value=training_metrics[metric][lesion_name]["train"][-1],
+                            fl_ctx=fl_ctx,
+                            flip=self.flip,
+                        )
+                        send_metrics_value(
+                            label=f"VAL-{metric.upper()}",
+                            round=round_num,
+                            value=training_metrics[metric][lesion_name]["val"][-1],
+                            fl_ctx=fl_ctx,
+                            flip=self.flip,
+                        )
 
-            # Convert weights to tensor../ Run training
-            torch_weights = {k: torch.as_tensor(v) for k, v in dxo.data.items()}
-            self.local_train(fl_ctx, torch_weights, abort_signal, global_round)
+    # ------------------------------------------------------------------
+    # Data loading
+    # ------------------------------------------------------------------
 
-            # Check the abort_signal after training.
-            # local_train returns early if abort_signal is triggered.
-            if abort_signal.triggered:
-                return make_reply(ReturnCode.TASK_ABORTED)
+    def _build_datalist(self):
+        """Build train and val datalists from the FLIP cohort dataframe."""
+        datalist = []
+        for _, row in self.dataframe.iterrows():
+            accession_id = row["accession_id"]
+            pathology_dict = get_labels_from_radiology_row(
+                row, self._lesions, self._value_to_numerical, self._normal_key
+            )
+            try:
+                folder = self.flip.get_by_accession_number(
+                    self._project_id, accession_id, resource_type=[ResourceType.DICOM]
+                )
+            except Exception as err:
+                print(f"Could not get data for {accession_id}: {err}")
+                continue
 
-            # Save the local model after training.
-            self.save_local_model(fl_ctx)
+            matched = 0
+            for img in folder.rglob("*.dcm"):
+                try:
+                    pydicom.dcmread(str(img))
+                except Exception as e:
+                    print(f"Could not read DICOM {img}: {e}")
+                    continue
+                item = {"image": str(img)}
+                item.update(pathology_dict)
+                datalist.append(item)
+                matched += 1
+            print(f"Added {matched} DICOM images for {accession_id}.")
 
-            # Get the new state dict and send as weights
-            new_weights = self.model.state_dict()
-            outgoing_dxo = get_model_weights_diff(dxo.data, new_weights, self._n_iterations)
-            return outgoing_dxo.to_shareable()
-
-        elif task_name == self._submit_model_task_name:
-            # Load local model
-            ml = self.load_local_model(fl_ctx)
-
-            # Get the model parameters and create dxo from it
-            dxo = model_learnable_to_dxo(ml)
-            return dxo.to_shareable()
-        else:
-            return make_reply(ReturnCode.TASK_UNKNOWN)
-
-    def save_local_model(self, fl_ctx: FLContext):
-        run_dir = fl_ctx.get_engine().get_workspace().get_run_dir(fl_ctx.get_prop(ReservedKey.RUN_NUM))
-        models_dir = os.path.join(run_dir, PTConstants.PTModelsDir)
-        if not os.path.exists(models_dir):
-            os.makedirs(models_dir)
-        model_path = os.path.join(models_dir, PTConstants.PTLocalModelName)
-
-        ml = make_model_learnable(self.model.state_dict(), {})
-        self.persistence_manager.update(ml)
-        torch.save(self.persistence_manager.to_persistence_dict(), model_path)
-
-    def load_local_model(self, fl_ctx: FLContext):
-        run_dir = fl_ctx.get_engine().get_workspace().get_run_dir(fl_ctx.get_prop(ReservedKey.RUN_NUM))
-        models_dir = os.path.join(run_dir, PTConstants.PTModelsDir)
-        if not os.path.exists(models_dir):
-            return None
-        model_path = os.path.join(models_dir, PTConstants.PTLocalModelName)
-
-        self.persistence_manager = PTModelPersistenceFormatManager(
-            data=torch.load(model_path), default_train_conf=self._default_train_conf
-        )
-        ml = self.persistence_manager.to_model_learnable(exclude_vars=self._exclude_vars)
-        return ml
+        print(f"Found {len(datalist)} total DICOM images.")
+        train_end = int(len(datalist) * (1 - self._val_split - self._test_split))
+        val_end = int(len(datalist) * (1 - self._test_split))
+        return datalist[:train_end], datalist[train_end:val_end]

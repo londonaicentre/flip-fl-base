@@ -9,120 +9,136 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Description: This file contains the FLIP_VALIDATOR class which is responsible for validating the model.
+"""
+3D Spleen Segmentation Validator — MONAI FL ClientAlgo interface.
+
+``FLIP_VALIDATOR`` extends ``ClientAlgo`` and implements the ``evaluate()``
+lifecycle method.  It receives global model weights from the server via an
+``ExchangeObject``, runs sliding-window Dice validation on the FLIP cohort's
+validation split, and returns an ``ExchangeObject`` carrying the mean Dice
+score as a metric.
+
+This class is driven by ``flip.nvflare.executors.RUN_MONAI_FL_VALIDATOR``:
+  - ``initialize(extra)`` — set up model, transforms, and FLIP val dataset.
+  - ``evaluate(data, extra)`` — load weights, run validation, return metrics.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from pathlib import Path
 
 import numpy as np
 import torch
-from monai.data import DataLoader, Dataset, decollate_batch
-from nvflare.apis.dxo import DXO, DataKind, from_shareable
-from nvflare.apis.fl_constant import ReturnCode
-from nvflare.apis.fl_context import FLContext
-from nvflare.apis.shareable import Shareable, make_reply
-from nvflare.apis.signal import Signal
+from flip_datasets import SpleenValFLIPDataset
+from models import get_model
+from monai.data import DataLoader, decollate_batch
+from monai.fl.client.client_algo import ClientAlgo
+from monai.fl.utils.exchange_object import ExchangeObject
+from monai.metrics import DiceMetric
+from monai.transforms import AsDiscrete
 from nvflare.app_common.app_constant import AppConstants
-from trainer import FLIP_BASE
+from transforms import get_sliding_window_inferer, get_val_transforms
 
+from flip import FLIP
 from flip.nvflare.metrics import send_metrics_value
 
 
-class FLIP_VALIDATOR(FLIP_BASE):
+class FLIP_VALIDATOR(ClientAlgo):
+    """3D Spleen Segmentation validator using the MONAI FL ``ClientAlgo`` interface.
+
+    Datasets are built once at ``initialize()`` time (FLIP API call) and reused
+    across validation rounds.  Each call to ``evaluate()`` creates a fresh
+    ``DataLoader`` from the cached dataset so that no state leaks between rounds.
+
+    Args:
+        project_id: FLIP project identifier.
+        query: SQL cohort query passed to ``flip.get_dataframe()``.
+        validate_task_name: NVFLARE task name for validation (informational only;
+            the adapter routes the call to ``evaluate()`` directly).
+    """
+
     def __init__(
         self,
-        validate_task_name=AppConstants.TASK_VALIDATION,
-        project_id="",
-        query="",
-    ):
-        """
-        Validation executor for the FLIP project. This executor is responsible for validating the model.
-        """
-        super(FLIP_VALIDATOR, self).__init__()
-
+        project_id: str = "",
+        query: str = "",
+        validate_task_name: str = AppConstants.TASK_VALIDATION,
+    ) -> None:
+        self._project_id = project_id
+        self._query = query
         self._validate_task_name = validate_task_name
+        self.logger = logging.getLogger(self.__class__.__name__)
 
-        # Setup the dataset
-        self.project_id = project_id
-        self.query = query
-        self.dataframe = self.flip.get_dataframe(self.project_id, self.query)
+    def initialize(self, extra=None):
+        """Set up device, model, transforms, and FLIP validation dataset."""
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.model = get_model()
+        self.model.to(self.device)
 
-    def execute(
-        self,
-        task_name: str,
-        shareable: Shareable,
-        fl_ctx: FLContext,
-        abort_signal: Signal,
-    ) -> Shareable:
-        test_dict = self.get_val_datalist()
-        self._test_dataset = Dataset(test_dict, transform=self._val_transforms)
-        self.test_loader = DataLoader(self._test_dataset, batch_size=1, shuffle=False)
+        with open(str(Path(__file__).parent.resolve() / "config.json")) as f:
+            config = json.load(f)
+        val_split = config.get("VAL_SPLIT", 0.1)
 
-        if task_name == self._validate_task_name:
-            model_owner = "?"
-            dxo = from_shareable(shareable)
+        self.flip = FLIP()
+        self._val_dataset = SpleenValFLIPDataset(
+            flip=self.flip,
+            project_id=self._project_id,
+            query=self._query,
+            val_split=val_split,
+            transform=get_val_transforms(),
+        )
 
-            # Ensure data_kind is weights.
-            if not dxo.data_kind == DataKind.WEIGHTS:
-                self.log_exception(
-                    fl_ctx,
-                    f"DXO is of type {dxo.data_kind} but expected type WEIGHTS.",
-                )
-                return make_reply(ReturnCode.BAD_TASK_DATA)
+        self.inferer = get_sliding_window_inferer(self.device)
+        self.post_pred = AsDiscrete(argmax=True, to_onehot=2)
+        self.post_pred_gt = AsDiscrete(to_onehot=2)
+        self.dice_acc = DiceMetric(include_background=False, reduction="mean")
 
-            # Extract weights and ensure they are tensor.
-            model_owner = shareable.get_header(AppConstants.MODEL_OWNER, "?")
-            weights = {k: torch.as_tensor(v, device=self.device) for k, v in dxo.data.items()}
+    def evaluate(self, data, extra=None):
+        """Run sliding-window Dice validation and return metrics.
 
-            # Get validation accuracy
-            val_accuracy = self.do_validation(fl_ctx, weights, abort_signal)
-            if abort_signal.triggered:
-                return make_reply(ReturnCode.TASK_ABORTED)
+        Args:
+            data: ``ExchangeObject`` carrying the global model weights.
+            extra: Dict containing ``fl_ctx`` and ``abort_signal`` from the adapter.
 
-            self.log_info(
-                fl_ctx,
-                f"Accuracy when validating {model_owner}'s model on {fl_ctx.get_identity_name()}s data: {val_accuracy}",
-            )
+        Returns:
+            ``ExchangeObject`` with ``metrics={"val_acc": mean_dice}``.
+        """
+        fl_ctx = (extra or {}).get("fl_ctx")
+        abort_signal = (extra or {}).get("abort_signal")
 
-            dxo = DXO(data_kind=DataKind.METRICS, data={"val_acc": val_accuracy})
-            return dxo.to_shareable()
+        weights = {k: torch.as_tensor(v) for k, v in data.weights.items()}
+        val_accuracy = self._do_validation(weights, fl_ctx, abort_signal)
 
-        else:
-            return make_reply(ReturnCode.TASK_UNKNOWN)
+        return ExchangeObject(metrics={"val_acc": val_accuracy})
 
-    def do_validation(self, fl_ctx, weights, abort_signal):
+    def _do_validation(self, weights, fl_ctx, abort_signal):
         self.model.load_state_dict(weights)
         self.model.eval()
 
+        test_loader = DataLoader(self._val_dataset, batch_size=1, shuffle=False)
         val_dice = []
-        num_images = 0
 
         with torch.no_grad():
-            for i, batch in enumerate(self.test_loader):
-                if abort_signal.triggered:
-                    return 0
+            for batch in test_loader:
+                if abort_signal is not None and abort_signal.triggered:
+                    return 0.0
 
-                images, labels = (
-                    batch["image"].to(self.device),
-                    batch["label"].to(self.device),
-                )
+                images = batch["image"].to(self.device)
+                labels = batch["label"].to(self.device)
 
-                # Use the same inferer as trainer
                 predictions = self.inferer(images, self.model)
 
-                # Use same post-processing as trainer
                 self.dice_acc.reset()
                 predictions = decollate_batch(predictions)
-                predictions = torch.stack([self.post_pred(i) for i in predictions], 0)
-                labels = torch.stack([self.post_pred_gt(i) for i in labels], 0)
+                predictions = torch.stack([self.post_pred(p) for p in predictions], 0)
+                labels = torch.stack([self.post_pred_gt(lb) for lb in labels], 0)
                 self.dice_acc(y_pred=predictions, y=labels)
-                acc = self.dice_acc.aggregate()
-                val_dice.append(acc.item())
+                val_dice.append(self.dice_acc.aggregate().item())
 
-                batch_size = images.shape[0]
-                num_images += batch_size
-                self.logger.info(f"Validator Iteration: {i}, Num Images: {num_images}")
-
-            # Compute final mean Dice score
-            metric = np.mean(val_dice)
-            self.logger.info(f"Validator Iteration finished: {i}, Metric: {metric}")
+        metric = float(np.mean(val_dice)) if val_dice else 0.0
+        self.logger.info(f"Validation Dice: {metric:.4f}")
+        if fl_ctx is not None:
             send_metrics_value(label="TEST_DICE", value=metric, fl_ctx=fl_ctx, flip=self.flip)
 
         return metric

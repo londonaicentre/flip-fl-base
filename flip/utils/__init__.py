@@ -14,11 +14,13 @@
 FLIP Utilities module containing helper functions.
 
 Exports:
+    - FLIPDataset: Abstract MONAI Dataset adaptor for FLIP platform data
     - Utils: Utility class with static helper methods
     - get_model_weights_diff: Compute weight differences for federated updates
 """
 
+from flip.utils.flip_dataset import FLIPDataset
 from flip.utils.model_weights_handling import get_model_weights_diff
 from flip.utils.utils import Utils
 
-__all__ = ["Utils", "get_model_weights_diff"]
+__all__ = ["FLIPDataset", "Utils", "get_model_weights_diff"]

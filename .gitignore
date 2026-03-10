@@ -31,6 +31,7 @@ __pycache__/
 
 # ignore nvflare generated files during provisioning
 workspace/
+workspace-stag/
 
 # auto-generated files
 fl-server-net-1/fl-server/local/log_config.json

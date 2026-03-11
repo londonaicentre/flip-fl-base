@@ -14,7 +14,7 @@ name: Push src folder to PR-scoped S3 path on PRs
 
 on:
   pull_request:
-    types: [synchronize, reopened]
+    types: [opened, synchronize, reopened]
     paths:
       - "src/**" # only trigger if files inside src/ changed
       - ".github/workflows/push-pr-to-s3.yml" # or this workflow

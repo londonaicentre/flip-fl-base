@@ -25,6 +25,8 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     environment: flip
+    env:
+      FL_BACKEND: nvflare
 
     steps:
       - name: Checkout repository
@@ -45,7 +47,7 @@ jobs:
 
       - name: Sync src folder and commit SHA to S3
         env:
-          S3_FOLDER_URI: s3://${{ vars.AWS_STAG_S3_BUCKET_NAME }}/base-application/nvflare
+          S3_FOLDER_URI: s3://${{ vars.AWS_STAG_S3_BUCKET_NAME }}/base-application/${{ env.FL_BACKEND }}
         run: |
           aws s3 rm "${S3_FOLDER_URI}/" --recursive --exclude "*" --include "commit_*.txt" --only-show-errors
           aws s3 sync src/ "${S3_FOLDER_URI}/" --delete

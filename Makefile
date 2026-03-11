@@ -67,7 +67,7 @@ build-net: build
 download-test-data:
 	@if [ ! -d ".test_data" ]; then \
 		mkdir -p .test_data && \
-		aws s3 sync s3://$(FLIP_BUCKET_NAME)/test-data/flip-base-application .test_data; \
+		aws s3 sync s3://$(FLIP_BUCKET_NAME)/test-data/flip-fl-base .test_data; \
 	else \
 		echo "Directory .test_data already exists, skipping download."; \
 	fi

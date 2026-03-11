@@ -45,8 +45,8 @@ jobs:
 
       - name: Sync src folder and commit SHA to S3
         env:
-          S3_FOLDER_URI: s3://${{ vars.AWS_PROD_S3_BUCKET_NAME }}/base-application
+          S3_FOLDER_URI: s3://${{ vars.AWS_PROD_S3_BUCKET_NAME }}/base-application/nvflare
         run: |
           aws s3 rm "${S3_FOLDER_URI}/" --recursive --exclude "*" --include "commit_*.txt" --only-show-errors
-          aws s3 sync src/ "${S3_FOLDER_URI}/src/" --delete
+          aws s3 sync src/ "${S3_FOLDER_URI}/" --delete
           aws s3 cp "commit_${SHORT_SHA}.txt" "${S3_FOLDER_URI}/commit_${SHORT_SHA}.txt"

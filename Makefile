@@ -28,6 +28,10 @@ DOCKER_COMPOSE_CMD = docker compose -f deploy/compose.yml
 DOCKER_COMPOSE_DEV_CMD = NET_NUMBER=$(NET_NUMBER) docker compose -f deploy/compose.dev.yml up --build --remove-orphans
 DOCKER_COMPOSE_TEST_CMD = NET_NUMBER=$(NET_NUMBER) docker compose -f deploy/compose.test.yml up --build --remove-orphans
 
+# Test commands for development
+lint_command = uv run ruff check . --fix
+test_coverage_command = uv run pytest -s -vv --cov=flip/ --cov-report=term-missing tests/unit/
+
 #======================================#
 #         FL Network Commands          #
 #======================================#
@@ -120,7 +124,7 @@ test:
 
 unit-test:
 	# run unit tests with test coverage and verbose output, without capturing stdout
-	uv run pytest -s -vv --cov=flip/ --cov-report=term-missing tests/unit/
+	$(lint_command) && $(test_coverage_command)
 
 .PHONY: nvflare-provision build up down clean up-net down-net build-net \
         download-test-data \

@@ -10,7 +10,7 @@
 # limitations under the License.
 #
 
-name: Delete src folder from S3 on PR merge
+name: Delete src folder from PR-scoped S3 path on PR merge
 
 on:
   pull_request:

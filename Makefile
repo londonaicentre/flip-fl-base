@@ -106,7 +106,7 @@ test-spleen-standard:
 
 test-spleen-evaluation:
 	@./scripts/merge-job-dirs.sh src/evaluation/app tutorials/image_evaluation/3d_spleen_segmentation_evaluation/app_files "$(MERGED_DIR)"
-	@cp -v .test_data/checkpoints/model.pt "$(MERGED_DIR)/custom/model.pt"
+	@cp -v $(TEST_DATA_DIR)/checkpoints/model.pt "$(MERGED_DIR)/custom/model.pt"
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test-spleen-diffusion:

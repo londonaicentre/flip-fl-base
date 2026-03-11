@@ -58,7 +58,7 @@ jobs:
 
       - name: Sync src folder and commit SHA to PR S3 path
         env:
-          S3_FOLDER_URI: s3://${{ vars.AWS_DEV_S3_BUCKET_NAME }}/base-application-dev/pull-requests/${{ env.PR_NUMBER }}
+          S3_FOLDER_URI: s3://${{ vars.AWS_DEV_S3_BUCKET_NAME }}/base-application-dev/pull-requests/${{ env.PR_NUMBER }}/nvflare
         run: |
           aws s3 rm "${S3_FOLDER_URI}/" --recursive --exclude "*" --include "commit_*.txt" --only-show-errors
           aws s3 sync src/ "${S3_FOLDER_URI}/" --delete

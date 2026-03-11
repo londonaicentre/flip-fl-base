@@ -71,7 +71,7 @@ build-net: build
 download-test-data:
 	@if [ ! -d ".test_data" ]; then \
 		mkdir -p .test_data && \
-		uv run python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='aicentreflip/flip-fl-base-test-data', repo_type='dataset', local_dir='.test_data', local_dir_use_symlinks=False)" \
+		uv run python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='aicentreflip/flip-fl-base-test-data', repo_type='dataset', local_dir='.test_data')" \
 	else \
 		echo "Directory .test_data already exists, skipping download."; \
 	fi

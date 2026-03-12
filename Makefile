@@ -44,6 +44,11 @@ nvflare-provision-2-nets:
 nvflare-provision-stag:
 	@./scripts/provision-network.sh net-${NET_NUMBER}_project_stag.yml $(NET_NUMBER) workspace-stag
 
+upload-flare-kits-to-s3:
+	@datestr=$$(date +%Y%m%d) && \
+	echo "Uploading FLARE participant kits for network $(NET_NUMBER) to S3 with date string: $$datestr" && \
+	aws s3 sync ./workspace-stag/net-1 s3://flipstag-aicentre/fl-flare-participant-kits/$$datestr/net-1 --delete --dryrun
+
 nvflare-provision-additional-client:
 	@./scripts/provision-additional-client.sh $(NET_NUMBER) $(FL_PORT)
 

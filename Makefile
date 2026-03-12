@@ -42,7 +42,7 @@ nvflare-provision-2-nets:
 	NET_NUMBER=2 $(MAKE) nvflare-provision
 
 nvflare-provision-stag:
-	@./scripts/provision-network.sh net-${NET_NUMBER}_project_stag.yml $(NET_NUMBER) $(FL_PORT) $(DEBUG) workspace-stag
+	@./scripts/provision-network.sh net-${NET_NUMBER}_project_stag.yml $(NET_NUMBER) workspace-stag
 
 nvflare-provision-additional-client:
 	@./scripts/provision-additional-client.sh $(NET_NUMBER) $(FL_PORT)

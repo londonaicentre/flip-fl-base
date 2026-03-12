@@ -19,9 +19,7 @@ endif
 # Default values
 NET_NUMBER ?= 1
 FL_PORT ?= 8002
-ADMIN_PORT ?= 8003
 DEBUG ?= false
-LOG_LEVEL ?= DEBUG
 
 # Docker compose commands
 DOCKER_COMPOSE_CMD = docker compose -f deploy/compose.yml
@@ -37,14 +35,22 @@ test_coverage_command = uv run pytest -s -vv --cov=flip/ --cov-report=term-missi
 #======================================#
 
 nvflare-provision:
-	@./scripts/provision-network.sh $(NET_NUMBER) $(FL_PORT) $(ADMIN_PORT) $(DEBUG) $(LOG_LEVEL)
+	@./scripts/provision-network.sh net-${NET_NUMBER}_project.yml $(NET_NUMBER)
 
 nvflare-provision-2-nets:
-	NET_NUMBER=1 FL_PORT=8002 ADMIN_PORT=8003 DEBUG=$(DEBUG) LOG_LEVEL=$(LOG_LEVEL) $(MAKE) nvflare-provision 
-	NET_NUMBER=2 FL_PORT=8002 ADMIN_PORT=8003 DEBUG=$(DEBUG) LOG_LEVEL=$(LOG_LEVEL) $(MAKE) nvflare-provision
+	NET_NUMBER=1 $(MAKE) nvflare-provision
+	NET_NUMBER=2 $(MAKE) nvflare-provision
+
+nvflare-provision-stag:
+	@./scripts/provision-network.sh net-${NET_NUMBER}_project_stag.yml $(NET_NUMBER) workspace-stag
+
+upload-flare-kits-to-s3:
+	@datestr=$$(date +%Y%m%d) && \
+	echo "Uploading FLARE participant kits for network $(NET_NUMBER) to S3 with date string: $$datestr" && \
+	aws s3 sync ./workspace-stag/net-1 s3://flipstag-aicentre/fl-flare-participant-kits/$$datestr/net-1 --delete --dryrun
 
 nvflare-provision-additional-client:
-	@./scripts/provision-additional-client.sh $(NET_NUMBER) $(FL_PORT) $(ADMIN_PORT)
+	@./scripts/provision-additional-client.sh $(NET_NUMBER) $(FL_PORT)
 
 build:
 	@echo "Building Docker images for network $(NET_NUMBER) with LOCAL_DEV=$(LOCAL_DEV)"

@@ -32,14 +32,13 @@ jobs:
         with:
           fetch-depth: 0 # full history + all tags required for tag existence check
 
-      - name: Extract version from pyproject.toml
+      - name: Extract version from flip/__init__.py
         id: version
         run: |
-          VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/.*= *"\(.*\)"/\1/')
-          INIT_VERSION=$(grep -m1 '__version__' flip/__init__.py | sed 's/.*= *"\(.*\)"/\1/')
+          VERSION=$(grep -m1 '__version__' flip/__init__.py | sed 's/.*= *"\(.*\)"/\1/')
 
-          if [[ "$VERSION" != "$INIT_VERSION" ]]; then
-            echo "ERROR: Version mismatch — pyproject.toml has '${VERSION}' but flip/__init__.py has '${INIT_VERSION}'."
+          if [[ -z "$VERSION" ]]; then
+            echo "ERROR: Could not extract __version__ from flip/__init__.py."
             exit 1
           fi
 

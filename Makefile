@@ -20,7 +20,6 @@ endif
 NET_NUMBER ?= 1
 FL_PORT ?= 8002
 DEBUG ?= false
-MERGED_DIR ?= .test_runs/merged-job-dir
 
 # Docker compose commands
 DOCKER_COMPOSE_CMD = docker compose -f deploy/compose.yml

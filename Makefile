@@ -36,11 +36,11 @@ test_coverage_command = uv run pytest -s -vv --cov=flip/ --cov-report=term-missi
 #======================================#
 
 nvflare-provision:
-	@./scripts/provision-network.sh net-${NET_NUMBER}_project.yml $(NET_NUMBER) $(FL_PORT) $(DEBUG)
+	@./scripts/provision-network.sh net-${NET_NUMBER}_project.yml $(NET_NUMBER)
 
 nvflare-provision-2-nets:
-	NET_NUMBER=1 FL_PORT=8002 DEBUG=$(DEBUG) $(MAKE) nvflare-provision 
-	NET_NUMBER=2 FL_PORT=8002 DEBUG=$(DEBUG) $(MAKE) nvflare-provision
+	NET_NUMBER=1 $(MAKE) nvflare-provision
+	NET_NUMBER=2 $(MAKE) nvflare-provision
 
 nvflare-provision-stag:
 	@./scripts/provision-network.sh net-${NET_NUMBER}_project_stag.yml $(NET_NUMBER) $(FL_PORT) $(DEBUG) workspace-stag

@@ -71,10 +71,12 @@ build-net: build
 download-test-data:
 	@if [ ! -d ".test_data" ]; then \
 		mkdir -p .test_data && \
-		aws s3 sync s3://$(FLIP_BUCKET_NAME)/test-data/flip-base-application .test_data; \
+		uv run python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='aicentreflip/flip-fl-base-test-data', repo_type='dataset', local_dir='.test_data')" \
 	else \
 		echo "Directory .test_data already exists, skipping download."; \
 	fi
+
+TEST_DATA_DIR = .test_data/flip-fl-base-test-data
 
 #======================================#
 #         Integration Tests            #
@@ -84,14 +86,14 @@ MERGED_DIR ?= .test_runs/merged-job-dir
 
 # Test environment variables for xrays tests
 TEST_XRAYS_VARS = \
-	DEV_IMAGES_DIR=../.test_data/xrays/images \
-	DEV_DATAFRAME=../.test_data/xrays/sample_get_dataframe_response.csv \
+	DEV_IMAGES_DIR=../$(TEST_DATA_DIR)/xrays/images \
+	DEV_DATAFRAME=../$(TEST_DATA_DIR)/xrays/sample_get_dataframe_response.csv \
 	RUNS_DIR=../.test_runs/xrays
 
 # Test environment variables for spleen tests
 TEST_SPLEEN_VARS = \
-	DEV_IMAGES_DIR=../.test_data/spleen/accession-resources \
-	DEV_DATAFRAME=../.test_data/spleen/sample_get_dataframe_response.csv \
+	DEV_IMAGES_DIR=../$(TEST_DATA_DIR)/spleen/accession-resources \
+	DEV_DATAFRAME=../$(TEST_DATA_DIR)/spleen/sample_get_dataframe_response.csv \
 	RUNS_DIR=../.test_runs/spleen
 
 test-xrays-standard:
@@ -104,7 +106,7 @@ test-spleen-standard:
 
 test-spleen-evaluation:
 	@./scripts/merge-job-dirs.sh src/evaluation/app tutorials/image_evaluation/3d_spleen_segmentation_evaluation/app_files "$(MERGED_DIR)"
-	@cp -v .test_data/checkpoints/model.pt "$(MERGED_DIR)/custom/model.pt"
+	@cp -v $(TEST_DATA_DIR)/checkpoints/model.pt "$(MERGED_DIR)/custom/model.pt"
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test-spleen-diffusion:

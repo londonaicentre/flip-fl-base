@@ -108,7 +108,7 @@ test-spleen-diffusion:
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test-spleen-fedopt:
-	@./scripts/merge-job-dirs.sh src/fed_opt/app tutorials/image_synthesis/latent_diffusion_model/app_files "$(MERGED_DIR)"
+	@./scripts/merge-job-dirs.sh src/fed_opt/app tutorials/image_segmentation/3d_spleen_segmentation/app_files "$(MERGED_DIR)"
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
 test:

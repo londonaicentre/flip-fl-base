@@ -29,6 +29,7 @@ DOCKER_COMPOSE_TEST_CMD = NET_NUMBER=$(NET_NUMBER) docker compose -f deploy/comp
 # Test commands for development
 lint_command = uv run ruff check . --fix
 test_coverage_command = uv run pytest -s -vv --cov=flip/ --cov-report=term-missing tests/unit/
+docs_build_command = UV_CACHE_DIR=/tmp/uv-cache uv run --with-requirements docs/requirements.txt sphinx-build -b html docs docs/_build/html
 
 #======================================#
 #         FL Network Commands          #
@@ -138,7 +139,13 @@ unit-test:
 	# run unit tests with test coverage and verbose output, without capturing stdout
 	$(lint_command) && $(test_coverage_command)
 
+docs:
+	$(docs_build_command)
+
+docs-clean:
+	rm -rf docs/_build docs/reference/api
+
 .PHONY: nvflare-provision build up down clean up-net down-net build-net \
         download-test-data \
-		test-xrays-standard test-spleen-standard test-spleen-evaluation test-spleen-diffusion test \
-		unit-test
+			test-xrays-standard test-spleen-standard test-spleen-evaluation test-spleen-diffusion test \
+			unit-test docs docs-clean

@@ -38,6 +38,7 @@ htmlcov/
 
 # NVFLARE provisioned service directories (contain secrets)
 workspace/
+workspace-stag/
 
 # NVFLARE provisioned secrets - NEVER commit to version control
 # These are generated during provisioning (make nvflare-provision)

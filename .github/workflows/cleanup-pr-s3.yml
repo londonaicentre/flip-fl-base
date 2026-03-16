@@ -10,7 +10,7 @@
 # limitations under the License.
 #
 
-name: Delete src folder from S3 on PR merge
+name: Delete src folder from PR-scoped S3 path on PR merge
 
 on:
   pull_request:
@@ -29,6 +29,8 @@ jobs:
     name: Delete PR-scoped S3 path if merged
     runs-on: ubuntu-latest
     environment: flip
+    env:
+      FL_BACKEND: nvflare
     # Only run when the PR was merged AND it wasn't from a fork (uploads were skipped for forks)
     if: ${{ github.event.pull_request.merged == true && github.event.pull_request.head.repo.fork == false }}
 
@@ -44,7 +46,7 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           # Match your upload prefix; we nuke the whole PR root to be safe.
-          PR_S3_PREFIX: s3://${{ vars.AWS_DEV_S3_BUCKET_NAME }}/base-application-dev/pull-requests/${{ github.event.pull_request.number }}/
+          PR_S3_PREFIX: s3://${{ vars.AWS_DEV_S3_BUCKET_NAME }}/base-application-dev/pull-requests/${{ env.PR_NUMBER }}/${{ env.FL_BACKEND }}
         run: |
           echo "Removing S3 prefix: ${PR_S3_PREFIX}"
           aws s3 rm "${PR_S3_PREFIX}" --recursive --only-show-errors

@@ -113,6 +113,10 @@ test-spleen-diffusion:
 	@./scripts/merge-job-dirs.sh src/diffusion_model/app tutorials/image_synthesis/latent_diffusion_model/app_files "$(MERGED_DIR)"
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
+test-spleen-fedopt:
+	@./scripts/merge-job-dirs.sh src/fed_opt/app tutorials/image_segmentation/3d_spleen_segmentation/app_files "$(MERGED_DIR)"
+	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
+
 test:
 	@echo "Running integration tests with filtered output (showing only errors, warnings, and test results)..."
 	@echo "============================== XRays Standard Test =============================="

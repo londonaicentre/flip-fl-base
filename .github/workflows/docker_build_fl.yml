@@ -219,7 +219,7 @@ jobs:
         run: |
           docker build ${BUILD_ARGS} \
             -f fl_services/fl-api-base/Dockerfile \
-            -t $REGISTRY/$ORG/$API_IMAGE:${{ github.sha }} fl_services/fl-api-base
+            -t $REGISTRY/$ORG/$API_IMAGE:${{ github.sha }} .
 
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             docker tag $REGISTRY/$ORG/$API_IMAGE:${{ github.sha }} $REGISTRY/$ORG/$API_IMAGE:prod

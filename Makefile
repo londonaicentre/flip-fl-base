@@ -93,8 +93,8 @@ MERGED_DIR ?= .test_runs/merged-job-dir
 
 # Test environment variables for xrays tests
 TEST_XRAYS_VARS = \
-	DEV_IMAGES_DIR=../$(TEST_DATA_DIR)/xrays/images \
-	DEV_DATAFRAME=../$(TEST_DATA_DIR)/xrays/sample_get_dataframe_response.csv \
+	DEV_IMAGES_DIR=../.test_data/xrays/accession-resources \
+	DEV_DATAFRAME=../.test_data/xrays/sample_get_dataframe_response.csv \
 	RUNS_DIR=../.test_runs/xrays
 
 # Test environment variables for spleen tests

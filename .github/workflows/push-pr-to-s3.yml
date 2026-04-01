@@ -10,13 +10,14 @@
 # limitations under the License.
 #
 
-name: Push src folder to S3 on PRs
+name: Push src folder to PR-scoped S3 path on PRs
 
 on:
   pull_request:
-    types: [synchronize, reopened]
+    types: [opened, synchronize, reopened]
     paths:
       - "src/**" # only trigger if files inside src/ changed
+      - ".github/workflows/push-pr-to-s3.yml" # or this workflow
 
 permissions:
   id-token: write # required for OIDC
@@ -33,6 +34,8 @@ jobs:
     # Skip PRs from forks to avoid missing creds (no secrets/OIDC by default).
     if: ${{ github.event.pull_request.head.repo.fork == false }}
     environment: flip
+    env:
+      FL_BACKEND: nvflare
 
     steps:
       - name: Checkout repository
@@ -46,9 +49,12 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Derive PR metadata (use branch head SHA)
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          echo "PR_NUMBER=${{ env.PR_NUMBER }}" >> $GITHUB_ENV
+          HEAD_SHA="${{ env.HEAD_SHA }}"
           SHORT_SHA="${HEAD_SHA::7}"   # first 7 chars of branch head
           echo "HEAD_SHA=$HEAD_SHA" >> $GITHUB_ENV
           echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
@@ -57,8 +63,9 @@ jobs:
 
       - name: Sync src folder and commit SHA to PR S3 path
         env:
-          S3_FOLDER_URI: s3://${{ vars.AWS_DEV_S3_BUCKET_NAME }}/base-application-dev/pull-requests/${{ env.PR_NUMBER }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          S3_FOLDER_URI: s3://${{ vars.AWS_DEV_S3_BUCKET_NAME }}/base-application-dev/pull-requests/${{ env.PR_NUMBER }}/${{ env.FL_BACKEND }}
         run: |
           aws s3 rm "${S3_FOLDER_URI}/" --recursive --exclude "*" --include "commit_*.txt" --only-show-errors
-          aws s3 sync src/ "${S3_FOLDER_URI}/src/" --delete
+          aws s3 sync src/ "${S3_FOLDER_URI}/" --delete
           aws s3 cp "commit_${SHORT_SHA}.txt" "${S3_FOLDER_URI}/commit_${SHORT_SHA}.txt"

@@ -24,7 +24,6 @@ This tutorial is designed for `JOB_TYPE=standard`.
 From this tutorial folder, create the local `uv` environment:
 
 ```bash
-cd tutorials/image_segmentation/3d_spleen_segmentation
 uv sync
 ```
 
@@ -64,7 +63,7 @@ tutorials/data/spleen/
 └── dataframe.csv
 ```
 
-Use a CSV with an `accession_id` column (example: `.test_data/spleen/sample_get_dataframe_response.csv`).
+Use a CSV with an `accession_id` column (see example in [test dataset spleen/sample_get_dataframe_response.csv](https://huggingface.co/datasets/aicentreflip/flip-fl-base-test-data/blob/main/flip-fl-base-test-data/spleen/sample_get_dataframe_response.csv)).
 
 ## App configuration
 
@@ -88,7 +87,6 @@ Training hyperparameters are in `app_files/config.json`:
 From this folder:
 
 ```bash
-cd tutorials/image_segmentation/3d_spleen_segmentation
 make run
 ```
 

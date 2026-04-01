@@ -124,6 +124,12 @@ test-spleen-fedopt:
 	@./scripts/merge-job-dirs.sh src/fed_opt/app tutorials/image_segmentation/3d_spleen_segmentation/app_files "$(MERGED_DIR)"
 	$(TEST_SPLEEN_VARS) JOB_DIR="../$(MERGED_DIR)" $(DOCKER_COMPOSE_TEST_CMD) nvflare-simulator-test
 
+# Run the hello-world federated learning simulation (no Docker, no data download required).
+# Uses NVFlare 2.7+ Recipe API (FedAvgRecipe + SimEnv) with CIFAR-10 and a simple CNN.
+# Results are written to /tmp/nvflare/simulation/hello-world/.
+test-hello:
+	.venv/bin/python tutorials/hello_world/job.py
+
 test:
 	@echo "Running integration tests with filtered output (showing only errors, warnings, and test results)..."
 	@echo "============================== XRays Standard Test =============================="
@@ -146,6 +152,6 @@ docs-clean:
 	rm -rf docs/_build docs/reference/api
 
 .PHONY: nvflare-provision build up down clean up-net down-net build-net \
-        download-test-data \
-			test-xrays-standard test-spleen-standard test-spleen-evaluation test-spleen-diffusion test \
-			unit-test docs docs-clean
+        run-container download-spleen-data download-checkpoints \
+		test-xrays-standard test-spleen-standard test-spleen-evaluation test-spleen-diffusion test test-hello unit-test \
+        copy-spleen-app save-spleen-app

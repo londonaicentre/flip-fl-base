@@ -104,6 +104,8 @@ dev = [
     "pytest>=8.4.2",
     "pytest-cov>=7.0.0",
     "ruff>=0.14.2",
+    "tensorboard>=2.20.0",
+    "torchvision>=0.24.1",
     "types-requests>=2.32.4.20260107",
 ]
 

@@ -8,3 +8,5 @@ Learn how to build and deploy federated learning jobs with FLIP.
    :caption: Tutorials
 
    hello-world-flip
+   monai-spleen-segmentation
+   hello-xgboost-flip

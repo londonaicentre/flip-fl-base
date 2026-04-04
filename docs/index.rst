@@ -11,4 +11,5 @@ generated directly from the source code under ``flip/`` using
    :caption: Contents
 
    overview
+   tutorials/index
    reference/index

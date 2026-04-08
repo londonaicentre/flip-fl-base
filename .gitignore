@@ -58,8 +58,6 @@ tutorials/testing/tmp
 # Tutorials do not need strict uv lock files
 tutorials/image_segmentation/3d_spleen_segmentation/uv.lock
 
-CLAUDE.md
-
 .claude/settings.local.json
 
 .mypy_cache/

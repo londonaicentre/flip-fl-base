@@ -152,8 +152,7 @@ class FLIP_TRAINER(ClientAlgo):
                     flip=self.flip,
                 )
             self.logger.info(
-                f"Epoch {epoch + 1}/{self._local_rounds} "
-                f"loss: {epoch_loss / max(1, len(train_loader)):.4f}"
+                f"Epoch {epoch + 1}/{self._local_rounds} loss: {epoch_loss / max(1, len(train_loader)):.4f}"
             )
 
     def get_weights(self, extra=None):

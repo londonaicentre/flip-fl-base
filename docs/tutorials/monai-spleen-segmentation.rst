@@ -184,7 +184,7 @@ instance with a ``get_model()`` factory function.
     from pathlib import Path
 
     import torch
-    from monai.networks.nets import UNet
+    from monai.networks.nets.unet import UNet
     from torch import nn
 
 
@@ -254,42 +254,40 @@ we define them in Python for explicit control.
 
     import numpy as np
     import torch
-    from monai.inferers import SlidingWindowInferer
-    from monai.transforms import (
-        Compose,
-        CropForegroundd,
-        EnsureChannelFirstd,
-        EnsureTyped,
-        LoadImaged,
-        Orientationd,
-        RandAffined,
-        RandCropByPosNegLabeld,
-        ScaleIntensityRanged,
-        Spacingd,
-    )
+    from monai.inferers.inferer import SlidingWindowInferer
+    from monai.transforms.compose import Compose
+    from monai.transforms.croppad.dictionary import CropForegroundd, RandCropByPosNegLabeld
+    from monai.transforms.intensity.dictionary import ScaleIntensityRanged
+    from monai.transforms.io.dictionary import LoadImaged
+    from monai.transforms.spatial.dictionary import Orientationd, RandAffined, Spacingd
+    from monai.transforms.utility.dictionary import EnsureChannelFirstd, EnsureTyped
 
 
     def get_train_transforms():
         """Training transforms with augmentation.
 
         Pipeline steps:
-          1. LoadImaged         — Read NIfTI files into numpy arrays
-          2. EnsureChannelFirstd — Add channel dim: (D,H,W) → (1,D,H,W)
-          3. Orientationd        — Reorient to RAS (Right-Anterior-Superior)
-          4. ScaleIntensityRanged — Clip CT Hounsfield units [-57, 250] → [0, 1]
-          5. CropForegroundd     — Remove empty background slices
-          6. Spacingd            — Resample to uniform 1.5×1.5×2.0 mm voxels
-          7. RandCropByPosNegLabeld — Extract random 96³ patches (balanced pos/neg)
-          8. EnsureTyped         — Convert to PyTorch tensors
-          9. RandAffined         — Random rotation/scaling augmentation
+        1. LoadImaged         — Read NIfTI files into numpy arrays
+        2. EnsureChannelFirstd — Add channel dim: (D,H,W) → (1,D,H,W)
+        3. Orientationd        — Reorient to RAS (Right-Anterior-Superior)
+        4. ScaleIntensityRanged — Clip CT Hounsfield units [-57, 250] → [0, 1]
+        5. CropForegroundd     — Remove empty background slices
+        6. Spacingd            — Resample to uniform 1.5×1.5×2.0 mm voxels
+        7. RandCropByPosNegLabeld — Extract random 96³ patches (balanced pos/neg)
+        8. EnsureTyped         — Convert to PyTorch tensors
+        9. RandAffined         — Random rotation/scaling augmentation
         """
         return Compose([
             LoadImaged(keys=["image", "label"]),
             EnsureChannelFirstd(keys=["image", "label"]),
             Orientationd(keys=["image", "label"], axcodes="RAS"),
             ScaleIntensityRanged(
-                keys=["image"], a_min=-57, a_max=250,
-                b_min=0.0, b_max=1.0, clip=True,
+                keys=["image"],
+                a_min=-57,
+                a_max=250,
+                b_min=0.0,
+                b_max=1.0,
+                clip=True,
             ),
             CropForegroundd(keys=["image", "label"], source_key="image"),
             Spacingd(
@@ -301,8 +299,11 @@ we define them in Python for explicit control.
                 keys=["image", "label"],
                 label_key="label",
                 spatial_size=(96, 96, 96),
-                pos=1, neg=1, num_samples=4,
-                image_key="image", image_threshold=0,
+                pos=1,
+                neg=1,
+                num_samples=4,
+                image_key="image",
+                image_threshold=0,
             ),
             EnsureTyped(keys=["image", "label"]),
             RandAffined(
@@ -323,11 +324,16 @@ we define them in Python for explicit control.
             EnsureChannelFirstd(keys=["image", "label"]),
             Orientationd(keys=["image", "label"], axcodes="RAS"),
             ScaleIntensityRanged(
-                keys=["image"], a_min=-57, a_max=250,
-                b_min=0.0, b_max=1.0, clip=True,
+                keys=["image"],
+                a_min=-57,
+                a_max=250,
+                b_min=0.0,
+                b_max=1.0,
+                clip=True,
             ),
             CropForegroundd(
-                keys=["image", "label"], source_key="image",
+                keys=["image", "label"],
+                source_key="image",
                 allow_smaller=True,
             ),
             Spacingd(
@@ -377,7 +383,7 @@ resolves imaging data through its API:
               flip.get_by_accession_number(project_id, acc_id) → Path to NIfTI folder
 
 FLIP provides the ``FLIPDataset`` abstract base class (in ``flip.utils``) that
-handles the query → dataframe → datalist lifecycle. You only implement
+handles the ``query`` → ``dataframe`` → ``datalist`` lifecycle. You only implement
 ``_build_datalist(dataframe)`` to define how your domain maps accession IDs
 to sample dicts.
 
@@ -1235,17 +1241,17 @@ How It All Fits Together
     ┌───────────────────────────────────────────────────────────────────┐
     │                        FLIP Server                                │
     │                                                                   │
-    │  PTFileModelPersistor ──→ loads SegmentationNetwork               │
+    │  PTFileModelPersistor → loads SegmentationNetwork                 │
     │         │                                                         │
     │         ▼                                                         │
     │  ScatterAndGather controller                                      │
     │    Round 1:                                                       │
-    │      ├─ Send global weights ──→ Client A (Hospital 1)             │
-    │      └─ Send global weights ──→ Client B (Hospital 2)             │
+    │      ├─ Send global weights → Client A (Hospital 1)               │
+    │      └─ Send global weights → Client B (Hospital 2)               │
     │                                                                   │
     │    Wait for weight diffs from both clients                        │
-    │      ├─ Client A: trained on 30 spleen CTs, 120 iterations       │
-    │      └─ Client B: trained on 50 spleen CTs, 200 iterations       │
+    │      ├─ Client A: trained on 30 spleen CTs, 120 iterations        │
+    │      └─ Client B: trained on 50 spleen CTs, 200 iterations        │
     │                                                                   │
     │    InTimeAccumulateWeightedAggregator:                            │
     │      global_weights += (120/(120+200)) * diff_A                   │
@@ -1253,7 +1259,7 @@ How It All Fits Together
     │                                                                   │
     │    Round 2: repeat with updated global weights                    │
     │                                                                   │
-    │  CrossSiteModelEval ──→ final Dice scores from each client        │
+    │  CrossSiteModelEval → final Dice scores from each client          │
     └───────────────────────────────────────────────────────────────────┘
 
     ┌───────────────────────────────────────────────────────────────────┐
@@ -1262,12 +1268,12 @@ How It All Fits Together
     │  RUN_MONAI_FL_TRAINER executor:                                   │
     │    1. import trainer → FLIP_TRAINER()                             │
     │    2. FLIP_TRAINER.initialize():                                  │
-    │       - flip.get_dataframe() → 30 accession IDs                  │
-    │       - flip.get_by_accession_number() × 30 → NIfTI paths        │
+    │       - flip.get_dataframe() → 30 accession IDs                   │
+    │       - flip.get_by_accession_number() × 30 → NIfTI paths         │
     │       - Build SpleenTrainFLIPDataset (27 train / 3 val)           │
     │    3. FLIP_TRAINER.train(global_weights):                         │
     │       - Load weights into UNet                                    │
-    │       - Train 4 epochs × 9 batches = 36 iterations               │
+    │       - Train 4 epochs × 9 batches = 36 iterations                │
     │       - DiceCELoss → Adam optimizer                               │
     │    4. FLIP_TRAINER.get_weights():                                 │
     │       - Return weight diff (local - global)                       │

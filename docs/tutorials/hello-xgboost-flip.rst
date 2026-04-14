@@ -1196,21 +1196,37 @@ The deployment process is identical for both strategies:
 Choosing the Right Strategy
 ---------------------------
 
-.. table::
+.. list-table::
    :widths: 20 40 40
+   :header-rows: 1
 
-   ========================  ====================================  ====================================
-   Consideration             Strategy A (Cyclic XGBoost)            Strategy B (Federated MLP)
-   ========================  ====================================  ====================================
-   Multi-site                Sequential (1 client per round)        Parallel (all clients per round)
-   Aggregation               Model passthrough                      FedAvg (weight averaging)
-   Model type                XGBoost (decision trees)               Neural network (MLP)
-   Feature importance        Built-in (``booster.get_score()``)     Requires separate analysis
-   Interpretability          High (tree structure inspectable)       Lower (black-box weights)
-   Large tabular data        Excellent (XGBoost strength)           Good (with proper architecture)
-   Privacy filters           Not applicable (byte model)            PercentilePrivacy supported
-   GPU acceleration          Optional (``tree_method: "gpu_hist"``) Standard PyTorch CUDA
-   ========================  ====================================  ====================================
+   * - Consideration
+     - Strategy A (Cyclic XGBoost)
+     - Strategy B (Federated MLP)
+   * - Multi-site
+     - Sequential (1 client per round)
+     - Parallel (all clients per round)
+   * - Aggregation
+     - Model passthrough
+     - FedAvg (weight averaging)
+   * - Model type
+     - XGBoost (decision trees)
+     - Neural network (MLP)
+   * - Feature importance
+     - Built-in (``booster.get_score()``)
+     - Requires separate analysis
+   * - Interpretability
+     - High (tree structure inspectable)
+     - Lower (black-box weights)
+   * - Large tabular data
+     - Excellent (XGBoost strength)
+     - Good (with proper architecture)
+   * - Privacy filters
+     - Not applicable (byte model)
+     - PercentilePrivacy supported
+   * - GPU acceleration
+     - Optional (``tree_method: "gpu_hist"``)
+     - Standard PyTorch CUDA
 
 **Recommendation**:
 

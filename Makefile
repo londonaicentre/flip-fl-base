@@ -154,4 +154,4 @@ docs-clean:
 .PHONY: nvflare-provision build up down clean up-net down-net build-net \
         run-container download-spleen-data download-checkpoints \
 		test-xrays-standard test-spleen-standard test-spleen-evaluation test-spleen-diffusion test test-hello unit-test \
-        copy-spleen-app save-spleen-app
+		docs docs-clean copy-spleen-app save-spleen-app

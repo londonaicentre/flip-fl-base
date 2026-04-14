@@ -234,7 +234,7 @@ Change 4: From Job Recipe to Config Files
 
 Server config (``config_fed_server.json``):
 
-.. code-block:: json
+.. code-block:: text
 
     {
       "format_version": 2,
@@ -255,7 +255,7 @@ Server config (``config_fed_server.json``):
 
 Client config (``config_fed_client.json``):
 
-.. code-block:: json
+.. code-block:: text
 
     {
       "executors": [
@@ -770,11 +770,11 @@ Validation is separated into its own executor task.
 
 
 Step 5: Create config.json
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Hyperparameters for trainer and validator:
 
-.. code-block:: json
+.. code-block:: text
 
     {
       "job_type": "standard",
@@ -790,7 +790,7 @@ you'd include extensive parameters like ``LESIONS``, ``VALIDATE_EVERY``, etc.
 
 
 Step 6: Create requirements.txt
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: text
 
@@ -821,7 +821,7 @@ NVFlare configs go in a parallel folder structure. Create:
 
 **server config** (``config/config_fed_server.json``):
 
-.. code-block:: json
+.. code-block:: text
 
     {
       "format_version": 2,
@@ -876,7 +876,7 @@ NVFlare configs go in a parallel folder structure. Create:
 
 **client config** (``config/config_fed_client.json``):
 
-.. code-block:: json
+.. code-block:: text
 
     {
       "format_version": 2,
@@ -1081,7 +1081,7 @@ Common Pitfalls
 
 ❌ Wrong: Only trainer executor, no validator
 
-.. code-block:: json
+.. code-block:: text
 
     "executors": [
       {"tasks": ["train"], "executor": {...}}
@@ -1089,7 +1089,7 @@ Common Pitfalls
 
 ✓ Correct: Both trainer and validator
 
-.. code-block:: json
+.. code-block:: text
 
     "executors": [
       {"tasks": ["train"], "executor": {...}},

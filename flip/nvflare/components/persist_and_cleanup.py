@@ -11,7 +11,6 @@
 #
 
 import os
-from pathlib import Path
 import shutil
 import traceback
 from pathlib import Path

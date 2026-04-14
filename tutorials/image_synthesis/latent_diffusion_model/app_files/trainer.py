@@ -181,7 +181,6 @@ class FLIP_TRAINER(ClientAlgo):
         torch_weights = {k: torch.as_tensor(v) for k, v in data.weights.items()}
         self._global_weights = {k: v.clone() for k, v in torch_weights.items()}
 
-        fl_ctx_job_id = fl_ctx.get_job_id() if fl_ctx is not None else "local"
         train_dict = self._site_split(train_dict=self.train_dict, fl_ctx=fl_ctx)
 
         train_dataset = Dataset(train_dict, transform=self._transforms)

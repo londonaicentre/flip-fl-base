@@ -15,10 +15,21 @@ from __future__ import annotations
 from collections import OrderedDict
 from typing import TYPE_CHECKING
 
+import numpy as np
 from nvflare.apis.dxo import DXO, DataKind, MetaKey
 
 if TYPE_CHECKING:
     pass
+
+
+def _to_numpy_array(value):
+    """Convert a tensor/array-like weight value to a detached numpy array."""
+
+    import torch
+
+    if isinstance(value, torch.Tensor):
+        return value.detach().cpu().numpy()
+    return np.asarray(value)
 
 
 def get_model_weights_diff(original_weights: OrderedDict, new_weights: OrderedDict, iterations: int) -> DXO:
@@ -33,18 +44,11 @@ def get_model_weights_diff(original_weights: OrderedDict, new_weights: OrderedDi
         DXO: DXO containing the weight updates for the server.
     """
 
-    import torch
-
-    first_key = next(iter(new_weights))
-    first_val = new_weights[first_key]
-    if isinstance(first_val, torch.Tensor):
-        new_weights_dict = {k: v.cpu().numpy() for k, v in new_weights.items()}
-    else:
-        new_weights_dict = dict(new_weights)
-
     weight_diff = {}
-    for k in new_weights_dict.keys():
-        weight_diff[k] = new_weights_dict[k] - original_weights[k]
+    for k in new_weights.keys():
+        original = _to_numpy_array(original_weights[k])
+        updated = _to_numpy_array(new_weights[k])
+        weight_diff[k] = updated - original
 
     outgoing_dxo = DXO(
         data_kind=DataKind.WEIGHT_DIFF,

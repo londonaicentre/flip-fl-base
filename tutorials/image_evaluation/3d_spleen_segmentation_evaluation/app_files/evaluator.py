@@ -21,6 +21,7 @@ Driven by ``flip.nvflare.executors.RUN_MONAI_FL_EVALUATOR``.
 """
 
 import json
+import logging
 from pathlib import Path
 
 import nibabel as nib
@@ -46,6 +47,7 @@ class FLIP_EVALUATOR(ClientAlgo):
         self._evaluate_task_name = evaluate_task_name
         self._project_id = project_id
         self._query = query
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def initialize(self, extra=None):
         """Set up models, transforms, and FLIP dataset."""

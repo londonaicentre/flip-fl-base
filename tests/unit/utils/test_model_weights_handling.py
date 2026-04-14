@@ -46,6 +46,14 @@ class TestGetModelWeightsDiff:
 
         np.testing.assert_array_almost_equal(result.data["w"], [2.0, 3.0])
 
+    def test_computes_correct_diff_with_mixed_original_tensor_and_new_numpy(self):
+        original = OrderedDict({"w": torch.tensor([1.0, 2.0])})
+        new = OrderedDict({"w": np.array([4.0, 7.0])})
+
+        result = get_model_weights_diff(original, new, iterations=1)
+
+        np.testing.assert_array_almost_equal(result.data["w"], [3.0, 5.0])
+
     def test_sets_num_steps_meta(self):
         original = OrderedDict({"w": np.array([0.0])})
         new = OrderedDict({"w": np.array([1.0])})

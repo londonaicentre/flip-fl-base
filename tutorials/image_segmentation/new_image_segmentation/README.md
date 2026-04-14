@@ -1,9 +1,10 @@
 # New Image Segmentation (Migrated Client API + Recipe)
 
 This tutorial is the migrated MONAI image segmentation pattern based on the NVFlare migration guide:
-https://github.com/NVIDIA/NVFlare/blob/main/integration/monai/MIGRATION.md
+<https://github.com/NVIDIA/NVFlare/blob/main/integration/monai/MIGRATION.md>
 
 It uses the modern NVFlare stack:
+
 - `nvflare.client` Client API
 - Bundle-native `FLIP_TRAINER` (`ClientAlgo`) for MONAI training
 - `FedAvgRecipe` + `SimEnv` for local simulation

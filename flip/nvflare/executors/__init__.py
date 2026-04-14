@@ -16,13 +16,24 @@ FLIP Executors module containing NVFLARE executor wrappers.
 These executors wrap user-provided training, validation, and evaluation logic.
 
 Exports:
-    - RUN_TRAINER: Wrapper executor for user's FLIP_TRAINER class
-    - RUN_VALIDATOR: Wrapper executor for user's FLIP_VALIDATOR class
-    - RUN_EVALUATOR: Wrapper executor for user's FLIP_EVALUATOR class
+    - RUN_TRAINER: Wrapper executor for user's FLIP_TRAINER class (legacy NVFLARE-native)
+    - RUN_VALIDATOR: Wrapper executor for user's FLIP_VALIDATOR class (legacy NVFLARE-native)
+    - RUN_EVALUATOR: Wrapper executor for user's FLIP_EVALUATOR class (legacy NVFLARE-native)
+    - RUN_MONAI_FL_TRAINER: Adapter executor for ClientAlgo-compatible FLIP_TRAINER
+    - RUN_MONAI_FL_VALIDATOR: Adapter executor for ClientAlgo-compatible FLIP_VALIDATOR
+    - RUN_MONAI_FL_EVALUATOR: Adapter executor for ClientAlgo-compatible FLIP_EVALUATOR
 """
 
 from flip.nvflare.executors.evaluator import RUN_EVALUATOR
+from flip.nvflare.executors.monai_fl_adapter import RUN_MONAI_FL_EVALUATOR, RUN_MONAI_FL_TRAINER, RUN_MONAI_FL_VALIDATOR
 from flip.nvflare.executors.trainer import RUN_TRAINER
 from flip.nvflare.executors.validator import RUN_VALIDATOR
 
-__all__ = ["RUN_TRAINER", "RUN_VALIDATOR", "RUN_EVALUATOR"]
+__all__ = [
+    "RUN_TRAINER",
+    "RUN_VALIDATOR",
+    "RUN_EVALUATOR",
+    "RUN_MONAI_FL_TRAINER",
+    "RUN_MONAI_FL_VALIDATOR",
+    "RUN_MONAI_FL_EVALUATOR",
+]

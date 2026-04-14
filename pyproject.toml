@@ -71,6 +71,7 @@ full = [
     "monai>=1.5.1",
     "nibabel>=5.3.2",
     "pydicom>=3.0.1",
+    "pytorch-ignite>=0.4.11",
 ]
 
 [tool.hatch.version]
@@ -103,6 +104,8 @@ dev = [
     "pytest>=8.4.2",
     "pytest-cov>=7.0.0",
     "ruff>=0.14.2",
+    "tensorboard>=2.20.0",
+    "torchvision>=0.24.1",
     "types-requests>=2.32.4.20260107",
 ]
 

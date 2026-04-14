@@ -15,7 +15,7 @@
     {
       "tasks": ["evaluation"],
       "executor": {
-        "path": "flip.nvflare.executors.RUN_EVALUATOR",
+        "path": "flip.nvflare.executors.RUN_MONAI_FL_EVALUATOR",
         "args": {
           "project_id": "{project_id}",
           "query": "{query}"

@@ -14,7 +14,7 @@
     {
       "tasks": ["train", "submit_model"],
       "executor": {
-        "path": "flip.nvflare.executors.RUN_TRAINER",
+        "path": "flip.nvflare.executors.RUN_MONAI_FL_TRAINER",
         "args": {
           "project_id": "{project_id}",
           "query": "{query}"
@@ -24,7 +24,7 @@
     {
       "tasks": ["validate"],
       "executor": {
-        "path": "flip.nvflare.executors.RUN_VALIDATOR",
+        "path": "flip.nvflare.executors.RUN_MONAI_FL_VALIDATOR",
         "args": {
           "project_id": "{project_id}",
           "query": "{query}"

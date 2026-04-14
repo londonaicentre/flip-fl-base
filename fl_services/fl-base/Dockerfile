@@ -39,3 +39,6 @@ COPY flip/ ./flip/
 # --frozen ensures exact versions from uv.lock are used
 # Install with full optional dependencies for ML frameworks
 RUN uv sync --frozen --no-cache --extra full $(if [ "$LOCAL_DEV" = "true" ]; then echo "--dev"; else echo "--no-dev"; fi)
+
+# Placeholder file for bind-mounting the DEV_DATAFRAME CSV at runtime
+RUN touch /dataframe_file

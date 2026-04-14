@@ -1,0 +1,56 @@
+{
+    "imports": [
+        "$import torch",
+        "$from models import get_model",
+        "$from transforms import get_train_transforms"
+    ],
+    "bundle_root": ".",
+    "device": "$torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')",
+    "dataset_dir": ".",
+    "learning_rate": 5e-5,
+    "train_datalist": [],
+    "network_def": "$get_model()",
+    "network": "$@network_def.to(@device)",
+    "loss": {
+        "_target_": "monai.losses.DiceCELoss",
+        "to_onehot_y": true,
+        "softmax": true,
+        "squared_pred": false,
+        "batch": true,
+        "lambda_ce": 0.2,
+        "lambda_dice": 0.8
+    },
+    "optimizer": {
+        "_target_": "torch.optim.Adam",
+        "params": "$@network.parameters()",
+        "lr": "@learning_rate"
+    },
+    "train": {
+        "preprocessing": "$get_train_transforms()",
+        "dataset": {
+            "_target_": "monai.data.Dataset",
+            "data": "@train_datalist",
+            "transform": "@train#preprocessing"
+        },
+        "dataloader": {
+            "_target_": "torch.utils.data.DataLoader",
+            "dataset": "@train#dataset",
+            "batch_size": 3,
+            "shuffle": true,
+            "num_workers": 1
+        },
+        "inferer": {
+            "_target_": "monai.inferers.SimpleInferer"
+        },
+        "trainer": {
+            "_target_": "monai.engines.SupervisedTrainer",
+            "max_epochs": 4,
+            "device": "@device",
+            "train_data_loader": "@train#dataloader",
+            "network": "@network",
+            "optimizer": "@optimizer",
+            "loss_function": "@loss",
+            "inferer": "@train#inferer"
+        }
+    }
+}

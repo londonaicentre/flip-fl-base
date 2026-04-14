@@ -187,6 +187,5 @@ class FLIP_VALIDATOR(ClientAlgo):
             print(f"Added {matched} DICOM images for {accession_id}.")
 
         print(f"Found {len(datalist)} total DICOM test images.")
-        train_end = int(len(datalist) * (1 - self._val_split - self._test_split))
         val_end = int(len(datalist) * (1 - self._test_split))
         return datalist[val_end:]

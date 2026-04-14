@@ -145,8 +145,16 @@ class FLIP_TRAINER(ClientAlgo):
                 self._n_iterations += 1
 
             if fl_ctx is not None:
-                send_metrics_value(label="train_loss", value=epoch_loss / max(1, len(train_loader)), fl_ctx=fl_ctx, flip=self.flip)
-            self.logger.info(f"Epoch {epoch + 1}/{self._local_rounds} loss: {epoch_loss / max(1, len(train_loader)):.4f}")
+                send_metrics_value(
+                    label="train_loss",
+                    value=epoch_loss / max(1, len(train_loader)),
+                    fl_ctx=fl_ctx,
+                    flip=self.flip,
+                )
+            self.logger.info(
+                f"Epoch {epoch + 1}/{self._local_rounds} "
+                f"loss: {epoch_loss / max(1, len(train_loader)):.4f}"
+            )
 
     def get_weights(self, extra=None):
         """Return weight diff (or full weights for submit_model).
@@ -175,4 +183,3 @@ class FLIP_TRAINER(ClientAlgo):
 
     def finalize(self, extra=None):
         pass
-

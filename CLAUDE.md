@@ -20,6 +20,7 @@ flip-fl-base/
 │   │   ├── controllers/        # Workflow controllers (ScatterAndGather, CrossSiteModelEval)
 │   │   ├── executors/          # RUN_TRAINER, RUN_VALIDATOR, RUN_EVALUATOR
 │   │   └── components/         # Event handlers, persistors, privacy filters, locators
+│   ├── flower/                 # Flower server-side helpers (metrics/exception forwarding)
 │   └── utils/                  # General utilities, model weight helpers
 ├── src/                        # Application job type templates
 │   ├── standard/app/           # Standard federated training (FedAvg)
